@@ -2,7 +2,7 @@ module CacheVariables
 
 using BSON
 
-export cache
+export @cache
 
 function _cachevars(ex::Expr)
     (ex.head === :(=))   && return Symbol[ex.args[1]]
