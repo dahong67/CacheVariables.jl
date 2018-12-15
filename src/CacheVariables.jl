@@ -13,7 +13,7 @@ function _cachevars(ex::Expr)
     return Vector{Symbol}(undef,0)
 end
 
-macro cache(path, ex::Expr, overwrite::Bool=false)
+macro cache(path, ex::Expr, overwrite=false)
     vars = _cachevars(ex)
     vardesc = join(string.(vars), "\n")
     varkws  = [:($(var) = $(var)) for var in vars]
@@ -22,7 +22,9 @@ macro cache(path, ex::Expr, overwrite::Bool=false)
 
     return quote
         if !isfile($(esc(path))) || $(esc(overwrite))
-            @info(string("Saving to ", $(esc(path)), "\n", $(vardesc)))
+            val = $(esc(ex))
+            msg = $(esc(overwrite)) ? "Overwriting " : "Saving to "
+            @info(string(msg, $(esc(path)), "\n", $(vardesc)))
             bson($(esc(path)); $(esc(varlist))...)
             val
         else
