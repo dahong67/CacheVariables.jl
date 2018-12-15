@@ -1,6 +1,8 @@
 using CacheVariables, Test
 
-path = joinpath(@__DIR__, "data", "test.bson")
+dirpath = joinpath(@__DIR__, "data")
+!isdir(dirpath) && mkdir(path)
+path = joinpath(dirpath, "test.bson")
 
 @cache path begin
     x = collect(1:3)
@@ -28,7 +30,7 @@ end
 @test z == "test"
 
 # clean up
-rm(path)
+rm(dirpath,recursive=true)
 
 # make sure it's gone
 @test !isfile(path)

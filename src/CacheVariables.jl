@@ -24,7 +24,7 @@ macro cache(path, ex::Expr, overwrite::Bool=false)
         if !isfile($(esc(path))) || $(esc(overwrite))
             @info(string("Saving to ", $(esc(path)), "\n", $(vardesc)))
             bson($(esc(path)); $(esc(varlist))...)
-            $(esc(ex))
+            val
         else
             @info(string("Loading from ", $(esc(path)), "\n", $(vardesc)))
             data = BSON.load($(esc(path)))
