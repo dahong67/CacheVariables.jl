@@ -2,12 +2,6 @@ using CacheVariables, Test
 
 path = joinpath(@__DIR__, "data", "test.bson")
 
-expr = begin
-    x = collect(1:3)
-    y = 4
-    z = "test"
-end
-
 @cache path begin
     x = collect(1:3)
     y = 4
