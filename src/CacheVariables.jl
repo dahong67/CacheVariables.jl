@@ -22,16 +22,16 @@ macro cache(path, ex::Expr, overwrite=false)
 
     return quote
         if !isfile($(esc(path))) || $(esc(overwrite))
-            val = $(esc(ex))
+            _ans = $(esc(ex))
             _msg = isfile($(esc(path))) ? "Overwriting " : "Saving to "
             @info(string(_msg, $(esc(path)), "\n", $(vardesc)))
-            bson($(esc(path)); $(esc(varlist))...)
-            val
+            bson($(esc(path)); $(esc(varlist))...,ans=_ans)
+            _ans
         else
             @info(string("Loading from ", $(esc(path)), "\n", $(vardesc)))
             data = BSON.load($(esc(path)))
             $(esc(vartuple)) = getindex.(Ref(data), $vars)
-            $(esc(vars[end]))
+            data[:ans]
         end
     end
 end
