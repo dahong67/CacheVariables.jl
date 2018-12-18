@@ -23,7 +23,7 @@ macro cache(path, ex::Expr, overwrite=false)
     return quote
         if !isfile($(esc(path))) || $(esc(overwrite))
             val = $(esc(ex))
-            _msg = $(esc(overwrite)) ? "Overwriting " : "Saving to "
+            _msg = isfile($(esc(path))) ? "Overwriting " : "Saving to "
             @info(string(_msg, $(esc(path)), "\n", $(vardesc)))
             bson($(esc(path)); $(esc(varlist))...)
             val
