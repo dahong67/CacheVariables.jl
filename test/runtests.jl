@@ -2,13 +2,14 @@ using CacheVariables, BSON, Test
 
 ## Add data directory, define data file path
 dirpath = joinpath(@__DIR__, "data")
-!isdir(dirpath) && mkdir(dirpath)
+isdir(dirpath) && rm(dirpath; recursive=true)
+mkdir(dirpath)
 path = joinpath(dirpath, "test.bson")
 
 ## Test save functionality
 @testset "Save" begin
     # 1. verify log message
-    @test_logs (:info, "Saving to /home/jk/.julia/dev/CacheVariables/test/data/test.bson\nx\ny\nz") (@cache path begin
+    @test_logs (:info, "Saving to $path\nx\ny\nz") (@cache path begin
         x = collect(1:3)
         y = 4
         z = "test"
@@ -36,7 +37,7 @@ end
 
     # 2. file exists: load variables from it
     # verify log message
-    @test_logs (:info, "Loading from /home/jk/.julia/dev/CacheVariables/test/data/test.bson\nx\ny\nz") (@cache path begin
+    @test_logs (:info, "Loading from $path\nx\ny\nz") (@cache path begin
         x = collect(1:3)
         y = 4
         z = "test"
@@ -62,7 +63,7 @@ end
 
     # 2. add `true` to @cache call to overwrite
     # validate log message
-    @test_logs (:info, "Overwriting /home/jk/.julia/dev/CacheVariables/test/data/test.bson\nx\ny\nz") (@cache path begin
+    @test_logs (:info, "Overwriting $path\nx\ny\nz") (@cache path begin
         x = collect(1:3)
         y = 4
         z = "test"
