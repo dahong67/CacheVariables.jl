@@ -9,4 +9,4 @@ julia:
 
 ## From: https://github.com/JuliaCI/Coverage.jl#tracking-coverage-with-codecovio
 after_success:
-- julia -e 'cd(Pkg.dir("MyPkg")); Pkg.add("Coverage"); using Coverage; Codecov.submit(process_folder())'
+- julia -e 'cd(Pkg.dir("CacheVariables")); Pkg.add("Coverage"); using Coverage; Codecov.submit(process_folder())'
