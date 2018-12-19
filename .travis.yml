@@ -7,6 +7,6 @@ julia:
   - 1.0
   - nightly
 
-## From: https://github.com/JuliaCI/Coverage.jl#tracking-coverage-with-codecovio
+## From: https://github.com/JuliaLang/Example.jl/blob/master/.travis.yml#L27
 after_success:
-- julia -e 'using Pkg; cd(Pkg.dir("CacheVariables")); Pkg.add("Coverage"); using Coverage; Codecov.submit(process_folder())'
+- julia -e 'if VERSION >= v"0.7.0-" using Pkg end; cd(Pkg.dir("CacheVariables")); Pkg.add("Coverage"); using Coverage; Codecov.submit(Codecov.process_folder())';
