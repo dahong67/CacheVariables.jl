@@ -104,5 +104,34 @@ end
     @test out == "final output"
 end
 
+## Test no variable case (where we just save ans)
+@testset "Only ans" begin
+	# 0. Clean up
+	rm(path)
+
+    # 1. verify log message
+    @test_logs (:info, "Saving to $path\n") (@cache path 2 + 3)
+
+	# 2. cache ans
+	rm(path)
+    out = @cache path 2+3
+
+    # 3. did variables enter workspace correctly?
+    @test out == 5
+
+	# 4. set variable to nothing
+    out = nothing
+
+    # 5. file exists: load variables from it
+    # verify log message
+    @test_logs (:info, "Loading from $path\n") (@cache path 2 + 3)
+
+    # load variables
+	out = @cache path 2+3
+
+    # 6. did variables enter workspace correctly?
+	@test out == 5
+end
+
 ## Clean up
 rm(dirpath; recursive=true)
