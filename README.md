@@ -73,6 +73,8 @@ julia> @cache "test.bson" begin
 100
 ```
 
+See also a similar package: Memoization.jl](https://github.com/marius311/Memoization.jl)
+
 ## Caveats
 + The variable name `ans` is used for storing the final output
 (`100` in the above examples),
