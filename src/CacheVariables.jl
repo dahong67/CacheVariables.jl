@@ -21,9 +21,9 @@ macro cache(path, ex::Expr, overwrite=false)
     vartuple = :($(vars...),)
 
     return quote
-        if !isfile($(esc(path))) || $(esc(overwrite))
+        if !ispath($(esc(path))) || $(esc(overwrite))
             _ans = $(esc(ex))
-            _msg = isfile($(esc(path))) ? "Overwriting " : "Saving to "
+            _msg = ispath($(esc(path))) ? "Overwriting " : "Saving to "
             @info(string(_msg, $(esc(path)), "\n", $(vardesc)))
             mkpath(splitdir($(esc(path)))[1])
             bson($(esc(path)); $(esc(varlist))...,ans=_ans)
