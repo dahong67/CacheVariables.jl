@@ -12,7 +12,7 @@ path = joinpath(dirpath, "test.bson")
         x = collect(1:3)
         y = 4
         z = "test"
-	"final output"
+        "final output"
     end)
 
     rm(path)
@@ -20,7 +20,7 @@ path = joinpath(dirpath, "test.bson")
         x = collect(1:3)
         y = 4
         z = "test"
-	"final output"
+        "final output"
     end
 
     # 3. did variables enter workspace correctly?
@@ -44,7 +44,7 @@ end
         x = collect(1:3)
         y = 4
         z = "test"
-	"final output"
+        "final output"
     end)
 
     # load variables
@@ -52,7 +52,7 @@ end
         x = collect(1:3)
         y = 4
         z = "test"
-	"final output"
+        "final output"
     end
 
     # 3. did variables enter workspace correctly?
@@ -65,7 +65,7 @@ end
 ## Test overwrite behavior
 @testset "Overwrite" begin
     # 1. change file contents
-    bson(path; x=nothing, y=nothing, z=nothing, ans=nothing)
+    bson(path; x = nothing, y = nothing, z = nothing, ans = nothing)
 
     # 2. add `true` to @cache call to overwrite
     # validate log message
@@ -73,7 +73,7 @@ end
         x = collect(1:3)
         y = 4
         z = "test"
-	"final output"
+        "final output"
     end true)
 
     # overwrite data file
@@ -82,7 +82,7 @@ end
         x = collect(1:3)
         y = 4
         z = "test"
-	"final output"
+        "final output"
     end overwrite
 
     # 3. check that correct data was overwritten
@@ -94,7 +94,7 @@ end
         x = collect(1:3)
         y = 4
         z = "test"
-	"final output"
+        "final output"
     end
 
     @test x == [1, 2, 3]
@@ -105,20 +105,20 @@ end
 
 ## Test no variable case (where we just save ans)
 @testset "Only ans" begin
-	# 0. Clean up
-	rm(path)
+    # 0. Clean up
+    rm(path)
 
     # 1. verify log message
     @test_logs (:info, "Saving to $path\n") (@cache path 2 + 3)
 
-	# 2. cache ans
-	rm(path)
-    out = @cache path 2+3
+    # 2. cache ans
+    rm(path)
+    out = @cache path 2 + 3
 
     # 3. did variables enter workspace correctly?
     @test out == 5
 
-	# 4. set variable to nothing
+    # 4. set variable to nothing
     out = nothing
 
     # 5. file exists: load variables from it
@@ -126,11 +126,11 @@ end
     @test_logs (:info, "Loading from $path\n") (@cache path 2 + 3)
 
     # load variables
-	out = @cache path 2+3
+    out = @cache path 2 + 3
 
     # 6. did variables enter workspace correctly?
-	@test out == 5
+    @test out == 5
 end
 
 ## Clean up
-rm(dirpath; recursive=true)
+rm(dirpath; recursive = true)
