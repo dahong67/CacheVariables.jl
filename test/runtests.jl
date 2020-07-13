@@ -2,8 +2,7 @@ using CacheVariables, BSON, Test
 
 ## Add data directory, define data file path
 dirpath = joinpath(@__DIR__, "data")
-isdir(dirpath) && rm(dirpath; recursive=true)
-mkdir(dirpath)
+isdir(dirpath) && error("Test directory already has a data subdirectory.")
 path = joinpath(dirpath, "test.bson")
 
 ## Test save functionality

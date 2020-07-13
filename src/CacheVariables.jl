@@ -25,6 +25,7 @@ macro cache(path, ex::Expr, overwrite=false)
             _ans = $(esc(ex))
             _msg = isfile($(esc(path))) ? "Overwriting " : "Saving to "
             @info(string(_msg, $(esc(path)), "\n", $(vardesc)))
+            mkpath(splitdir($(esc(path)))[1])
             bson($(esc(path)); $(esc(varlist))...,ans=_ans)
             _ans
         else
