@@ -3,7 +3,7 @@
 [![CI](https://github.com/dahong67/CacheVariables.jl/workflows/CI/badge.svg)](https://github.com/dahong67/CacheVariables.jl/actions)
 [![codecov](https://codecov.io/gh/dahong67/CacheVariables.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/dahong67/CacheVariables.jl)
 
-Save outputs from (expensive) computations.
+A lightweight way to save outputs from (expensive) computations.
 
 ```julia
 @cache "test.bson" begin
@@ -74,5 +74,6 @@ julia> @cache "test.bson" begin
 ```
 
 ## Caveats
-+ The variable name `ans` is used for storing the output (`100` in the above examples),
++ The variable name `ans` is used for storing the final output
+(`100` in the above examples),
 so it is best to avoid using this as a variable name.
