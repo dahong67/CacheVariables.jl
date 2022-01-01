@@ -75,7 +75,7 @@ macro cache(path, ex::Expr, overwrite = false)
             _ans
         else
             @info(string("Loading from ", $(esc(path)), "\n", $(vardesc)))
-            data = BSON.load($(esc(path)))
+            data = BSON.load($(esc(path)), @__MODULE__)
             $(esc(vartuple)) = getindex.(Ref(data), $vars)
             data[:ans]
         end

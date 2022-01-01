@@ -132,5 +132,43 @@ end
     @test out == 5
 end
 
+## Test functionality in module
+# Motivated by Pluto and based on test case from:
+# https://github.com/JuliaIO/BSON.jl/issues/25
+module MyModule
+using CacheVariables, Test, DataFrames
+
+@testset "In module" begin
+    # 0. module test path
+    dirpath = joinpath(@__DIR__, "data")
+    modpath = joinpath(dirpath, "modtest.bson")
+
+    # 1a. save
+    out = @cache modpath begin
+        d = DataFrame(a = 1:10, b = 'a':'j')
+        "final output"
+    end
+
+    # 1b. check: did variables enter workspace correctly?
+    @test d == DataFrame(a = 1:10, b = 'a':'j')
+    @test out == "final output"
+
+    # 2. set all variables to nothing
+    d = nothing
+    out = nothing
+
+    # 3a. load
+    out = @cache modpath begin
+        d = DataFrame(a = 1:10, b = 'a':'j')
+        "final output"
+    end
+
+    # 3b. check: did variables enter workspace correctly?
+    @test d == DataFrame(a = 1:10, b = 'a':'j')
+    @test out == "final output"
+end
+
+end
+
 ## Clean up
 rm(dirpath; recursive = true)
