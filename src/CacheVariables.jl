@@ -95,7 +95,7 @@ Tip: Use `do...end` to cache output from a block of code.
 julia> cache("test.bson") do
          a = "a very time-consuming quantity to compute"
          b = "a very long simulation to run"
-         return (;a=a,b=b)
+         return (; a = a, b = b)
        end
 [ Info: Saving to test.bson
 (a = "a very time-consuming quantity to compute", b = "a very long simulation to run")
@@ -103,7 +103,7 @@ julia> cache("test.bson") do
 julia> cache("test.bson") do
          a = "a very time-consuming quantity to compute"
          b = "a very long simulation to run"
-         return (;a=a,b=b)
+         return (; a = a, b = b)
        end
 [ Info: Loading from test.bson
 (a = "a very time-consuming quantity to compute", b = "a very long simulation to run")
