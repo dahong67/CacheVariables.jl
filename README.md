@@ -120,7 +120,7 @@ julia> @cache "test.bson" begin
 
 See also a similar package: [Memoization.jl](https://github.com/marius311/Memoization.jl)
 
-## Caveats
-+ The variable name `ans` is used for storing the final output
+**Caveat:**
+The variable name `ans` is used for storing the final output
 (`100` in the above examples),
 so it is best to avoid using this as a variable name.
