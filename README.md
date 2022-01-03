@@ -7,7 +7,7 @@ A lightweight way to save outputs from (expensive) computations.
 
 ## Function form
 
-The function form saves the output of running a function,
+The function form saves the output of running a function
 and can be used with the `do...end` syntax.
 
 ```julia
