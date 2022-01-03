@@ -5,6 +5,51 @@
 
 A lightweight way to save outputs from (expensive) computations.
 
+## Function form
+
+The function form saves the output of running a function,
+and can be used with the `do...end` syntax.
+
+```julia
+cache("test.bson") do
+  a = "a very time-consuming quantity to compute"
+  b = "a very long simulation to run"
+  return (; a = a, b = b)
+end
+```
+
+The first time this runs,
+it saves the output in a BSON file called `test.bson`.
+Subsequent runs load the saved output from the file `test.bson`
+rather than re-running the potentially time-consuming computations!
+Especially handy for long simulations.
+
+An example of the output:
+
+```julia
+julia> using CacheVariables
+
+julia> cache("test.bson") do
+         a = "a very time-consuming quantity to compute"
+         b = "a very long simulation to run"
+         return (; a = a, b = b)
+       end
+[ Info: Saving to test.bson
+(a = "a very time-consuming quantity to compute", b = "a very long simulation to run")
+
+julia> cache("test.bson") do
+         a = "a very time-consuming quantity to compute"
+         b = "a very long simulation to run"
+         return (; a = a, b = b)
+       end
+[ Info: Loading from test.bson
+(a = "a very time-consuming quantity to compute", b = "a very long simulation to run")
+```
+
+## Macro form
+
+The macro form looks at the code to determine what variables to save.
+
 ```julia
 @cache "test.bson" begin
   a = "a very time-consuming quantity to compute"
