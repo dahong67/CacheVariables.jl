@@ -3,7 +3,7 @@ module CacheVariables
 using BSON
 import Logging: @info
 
-export @cache
+export @cache, cache
 
 function _cachevars(ex::Expr)
     (ex.head === :(=)) && return Symbol[ex.args[1]]
@@ -79,6 +79,47 @@ macro cache(path, ex::Expr, overwrite = false)
             $(esc(vartuple)) = getindex.(Ref(data), $vars)
             data[:ans]
         end
+    end
+end
+
+"""
+    cache(f, path)
+
+Cache output from running `f()` using BSON file at `path`.
+Load if the file exists; run and save if it does not.
+
+Tip: Use `do...end` to cache output from a block of code.
+
+# Examples
+```julia-repl
+julia> cache("test.bson") do
+         a = "a very time-consuming quantity to compute"
+         b = "a very long simulation to run"
+         return (;a=a,b=b)
+       end
+[ Info: Saving to test.bson
+(a = "a very time-consuming quantity to compute", b = "a very long simulation to run")
+
+julia> cache("test.bson") do
+         a = "a very time-consuming quantity to compute"
+         b = "a very long simulation to run"
+         return (;a=a,b=b)
+       end
+[ Info: Loading from test.bson
+(a = "a very time-consuming quantity to compute", b = "a very long simulation to run")
+```
+"""
+function cache(@nospecialize(f), path)
+    if !ispath(path)
+        ans = f()
+        @info(string("Saving to ", path, "\n"))
+        mkpath(splitdir(path)[1])
+        bson(path; ans = ans)
+        return ans
+    else
+        @info(string("Loading from ", path, "\n"))
+        data = BSON.load(path, @__MODULE__)
+        return data[:ans]
     end
 end
 

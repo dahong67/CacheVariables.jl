@@ -170,5 +170,52 @@ end
 
 end
 
+## Test function form
+@testset "Function form" begin
+    funcpath = joinpath(dirpath, "functest.bson")
+
+    # 1a. Save - verify log message
+    @test_logs (:info, "Saving to $funcpath\n") cache(funcpath) do
+        x = collect(1:3)
+        y = 4
+        z = "test"
+        (; x = x, y = y, z = z)
+    end
+
+    # 1b. Save - save values to cache
+    rm(funcpath)
+    out = cache(funcpath) do
+        x = collect(1:3)
+        y = 4
+        z = "test"
+        (; x = x, y = y, z = z)
+    end
+
+    # 1c. Save - did variables enter workspace correctly?
+    @test out == (; x = [1, 2, 3], y = 4, z = "test")
+
+    # 2. Reset - set all variables to nothing
+    out = nothing
+
+    # 3a. Load - verify log message
+    @test_logs (:info, "Loading from $funcpath\n") cache(funcpath) do
+        x = collect(1:3)
+        y = 4
+        z = "test"
+        (; x = x, y = y, z = z)
+    end
+
+    # 3b. Load - load values from cache
+    out = cache(funcpath) do
+        x = collect(1:3)
+        y = 4
+        z = "test"
+        (; x = x, y = y, z = z)
+    end
+
+    # 3c. Load - did variables enter workspace correctly?
+    @test out == (; x = [1, 2, 3], y = 4, z = "test")
+end
+
 ## Clean up
 rm(dirpath; recursive = true)
