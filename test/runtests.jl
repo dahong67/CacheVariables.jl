@@ -217,5 +217,35 @@ end
     @test out == (; x = [1, 2, 3], y = 4, z = "test")
 end
 
+module MyFuncModule
+using CacheVariables, Test, DataFrames
+
+@testset "Function form - in module" begin
+    # 0. module test path
+    dirpath = joinpath(@__DIR__, "data")
+    modpath = joinpath(dirpath, "funcmodtest.bson")
+
+    # 1a. save
+    out = cache(modpath; mod = @__MODULE__) do
+        DataFrame(a = 1:10, b = 'a':'j')
+    end
+
+    # 1b. check: did variables enter workspace correctly?
+    @test out == DataFrame(a = 1:10, b = 'a':'j')
+
+    # 2. set all variables to nothing
+    out = nothing
+
+    # 3a. load
+    out = cache(modpath; mod = @__MODULE__) do
+        DataFrame(a = 1:10, b = 'a':'j')
+    end
+
+    # 3b. check: did variables enter workspace correctly?
+    @test out == DataFrame(a = 1:10, b = 'a':'j')
+end
+
+end
+
 ## Clean up
 rm(dirpath; recursive = true)

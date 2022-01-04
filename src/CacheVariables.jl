@@ -83,10 +83,11 @@ macro cache(path, ex::Expr, overwrite = false)
 end
 
 """
-    cache(f, path)
+    cache(f, path; mod = @__MODULE__)
 
 Cache output from running `f()` using BSON file at `path`.
 Load if the file exists; run and save if it does not.
+Use `mod` keyword argument to specify module.
 
 Tip: Use `do...end` to cache output from a block of code.
 
@@ -109,7 +110,7 @@ julia> cache("test.bson") do
 (a = "a very time-consuming quantity to compute", b = "a very long simulation to run")
 ```
 """
-function cache(@nospecialize(f), path)
+function cache(@nospecialize(f), path; mod = @__MODULE__)
     if !ispath(path)
         ans = f()
         @info(string("Saving to ", path, "\n"))
@@ -118,7 +119,7 @@ function cache(@nospecialize(f), path)
         return ans
     else
         @info(string("Loading from ", path, "\n"))
-        data = BSON.load(path, @__MODULE__)
+        data = BSON.load(path, mod)
         return data[:ans]
     end
 end
