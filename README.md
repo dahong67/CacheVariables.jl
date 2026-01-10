@@ -118,6 +118,56 @@ julia> @cache "test.bson" begin
 100
 ```
 
+## Cachemap form
+
+The `cachemap` function behaves like `map` but caches the result of the mapping operation.
+This is useful when you need to apply an expensive computation to each element of a collection.
+
+```julia
+cachemap(x -> x^2, "squares.bson", 1:5)
+```
+
+The first time this runs, it applies the function to each element and saves the result.
+Subsequent runs load the saved result from the file `squares.bson`.
+
+An example of the output:
+
+```julia
+julia> using CacheVariables
+
+julia> cachemap(x -> x^2, "squares.bson", 1:3)
+[ Info: Saving to squares.bson
+3-element Vector{Int64}:
+ 1
+ 4
+ 9
+
+julia> cachemap(x -> x^2, "squares.bson", 1:3)
+[ Info: Loading from squares.bson
+3-element Vector{Int64}:
+ 1
+ 4
+ 9
+```
+
+You can also cache intermediate results for each element by setting `cache_intermediates = true`.
+This creates separate cache files for each element (e.g., `squares_1.bson`, `squares_2.bson`, etc.):
+
+```julia
+julia> cachemap(x -> x^2, "squares.bson", 1:3; cache_intermediates = true)
+[ Info: Saving to squares_1.bson
+[ Info: Saving to squares_2.bson
+[ Info: Saving to squares_3.bson
+[ Info: Saving to squares.bson
+3-element Vector{Int64}:
+ 1
+ 4
+ 9
+```
+
+This is particularly useful when individual computations are expensive and you want to be able to reuse
+intermediate results even if the full computation doesn't complete.
+
 See also a similar package: [Memoization.jl](https://github.com/marius311/Memoization.jl)
 
 **Caveat:**
