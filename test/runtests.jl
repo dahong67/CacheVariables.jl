@@ -302,6 +302,14 @@ end
         @test result == [5, 7, 9]
     end
     
+    # 4. Test error handling
+    @testset "cachemap error handling" begin
+        errorpath = joinpath(cachemapdir, "error.bson")
+        
+        # 4a. Test with mismatched lengths
+        @test_throws ArgumentError cachemap(+, errorpath, [1, 2, 3], [4, 5]; cache_intermediates = true)
+    end
+    
     # Clean up
     rm(cachemapdir; recursive = true)
 end

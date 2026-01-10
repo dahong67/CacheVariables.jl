@@ -166,12 +166,22 @@ julia> cachemap(x -> x^2, "squares.bson", 1:3; cache_intermediates = true)
 function cachemap(@nospecialize(f), path, args...; cache_intermediates = false, mod = @__MODULE__)
     cache(path; mod = mod) do
         if cache_intermediates
+            # Validate arguments
+            if isempty(args)
+                throw(ArgumentError("cachemap requires at least one argument"))
+            end
+            
             # Generate path for intermediate caching
             dir, filename = splitdir(path)
             base, ext = splitext(filename)
             
-            # Get the length from the first argument
+            # Get the length from the first argument and validate all have same length
             n = length(first(args))
+            for arg in args
+                if length(arg) != n
+                    throw(ArgumentError("all arguments to cachemap must have the same length"))
+                end
+            end
             
             # For each index, cache the intermediate result
             results = Vector{Any}(undef, n)
