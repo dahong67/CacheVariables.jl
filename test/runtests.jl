@@ -306,8 +306,11 @@ end
     @testset "cachemap error handling" begin
         errorpath = joinpath(cachemapdir, "error.bson")
         
-        # 4a. Test with mismatched lengths
+        # 4a. Test with mismatched lengths (with intermediate caching)
         @test_throws ArgumentError cachemap(+, errorpath, [1, 2, 3], [4, 5]; cache_intermediates = true)
+        
+        # 4b. Test with mismatched lengths (without intermediate caching)
+        @test_throws ArgumentError cachemap(+, errorpath, [1, 2, 3], [4, 5])
     end
     
     # Clean up
