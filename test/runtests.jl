@@ -247,5 +247,64 @@ end
 
 end
 
+## Test cachemap function
+@testset "cachemap" begin
+    cachemapdir = joinpath(dirpath, "cachemap")
+    mkpath(cachemapdir)
+    cachemappath = joinpath(cachemapdir, "mapresult.bson")
+    
+    # 1. Test basic functionality without intermediate caching
+    @testset "Basic cachemap" begin
+        # 1a. First run - save
+        @test_logs (:info, r"Saving to.*mapresult.bson") begin
+            result = cachemap(x -> x^2, cachemappath, 1:3)
+            @test result == [1, 4, 9]
+        end
+        
+        # 1b. Second run - load
+        @test_logs (:info, r"Loading from.*mapresult.bson") begin
+            result = cachemap(x -> x^2, cachemappath, 1:3)
+            @test result == [1, 4, 9]
+        end
+    end
+    
+    # 2. Test with intermediate caching
+    @testset "cachemap with intermediates" begin
+        rm(cachemapdir; recursive = true)
+        mkpath(cachemapdir)
+        intermediatepath = joinpath(cachemapdir, "intermediate.bson")
+        
+        # 2a. First run - save all
+        result = cachemap(x -> x * 10, intermediatepath, 1:3; cache_intermediates = true)
+        @test result == [10, 20, 30]
+        
+        # 2b. Verify intermediate files exist
+        @test isfile(joinpath(cachemapdir, "intermediate_1.bson"))
+        @test isfile(joinpath(cachemapdir, "intermediate_2.bson"))
+        @test isfile(joinpath(cachemapdir, "intermediate_3.bson"))
+        @test isfile(intermediatepath)
+        
+        # 2c. Second run - load from cache
+        result = cachemap(x -> x * 10, intermediatepath, 1:3; cache_intermediates = true)
+        @test result == [10, 20, 30]
+    end
+    
+    # 3. Test with multiple arguments (like map)
+    @testset "cachemap with multiple arrays" begin
+        multipath = joinpath(cachemapdir, "multi.bson")
+        
+        # 3a. First run
+        result = cachemap(+, multipath, [1, 2, 3], [4, 5, 6])
+        @test result == [5, 7, 9]
+        
+        # 3b. Second run - load
+        result = cachemap(+, multipath, [1, 2, 3], [4, 5, 6])
+        @test result == [5, 7, 9]
+    end
+    
+    # Clean up
+    rm(cachemapdir; recursive = true)
+end
+
 ## Clean up
 rm(dirpath; recursive = true)
