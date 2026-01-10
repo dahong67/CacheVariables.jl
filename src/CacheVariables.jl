@@ -1,9 +1,11 @@
 module CacheVariables
 
 using BSON
+import Dates
+import InteractiveUtils: versioninfo
 import Logging: @info
 
-export @cache, cache
+export @cache, cache, cachemeta
 
 function _cachevars(ex::Expr)
     (ex.head === :(=)) && return Symbol[ex.args[1]]
@@ -120,6 +122,95 @@ function cache(@nospecialize(f), path; mod = @__MODULE__)
     else
         @info(string("Loading from ", path, "\n"))
         data = BSON.load(path, mod)
+        return data[:ans]
+    end
+end
+
+"""
+    cachemeta(f, path; mod = @__MODULE__)
+
+Cache output from running `f()` using BSON file at `path` with additional metadata.
+Load if the file exists; run and save if it does not.
+Use `mod` keyword argument to specify module.
+
+Saves and displays the following metadata:
+- Version info (from `versioninfo()`)
+- Time when run (from `Dates.now(Dates.UTC)`)
+- Runtime of code (in seconds)
+
+Tip: Use `do...end` to cache output from a block of code.
+
+# Examples
+```julia-repl
+julia> cachemeta("test.bson") do
+         a = "a very time-consuming quantity to compute"
+         b = "a very long simulation to run"
+         return (; a = a, b = b)
+       end
+[ Info: Saving to test.bson
+[ Info: Version: Julia Version 1.x.x
+[ Info: Timestamp: 2024-01-01T00:00:00.000
+[ Info: Runtime: 0.123 seconds
+(a = "a very time-consuming quantity to compute", b = "a very long simulation to run")
+
+julia> cachemeta("test.bson") do
+         a = "a very time-consuming quantity to compute"
+         b = "a very long simulation to run"
+         return (; a = a, b = b)
+       end
+[ Info: Loading from test.bson
+[ Info: Version: Julia Version 1.x.x
+[ Info: Timestamp: 2024-01-01T00:00:00.000
+[ Info: Runtime: 0.123 seconds
+(a = "a very time-consuming quantity to compute", b = "a very long simulation to run")
+```
+"""
+function cachemeta(@nospecialize(f), path; mod = @__MODULE__)
+    if !ispath(path)
+        # Capture version info
+        io_version = IOBuffer()
+        versioninfo(io_version; verbose=true)
+        version_str = String(take!(io_version))
+        
+        # Time and run the function
+        timestamp = Dates.now(Dates.UTC)
+        timed_result = @timed f()
+        ans = timed_result.value
+        runtime = timed_result.time
+        
+        # Save to file
+        @info(string("Saving to ", path, "\n"))
+        mkpath(splitdir(path)[1])
+        bson(path; ans = ans, metadata = Dict(
+            :version => version_str,
+            :timestamp => timestamp,
+            :runtime => runtime
+        ))
+        
+        # Display metadata
+        @info("Version: " * first(split(version_str, '\n')))
+        @info("Timestamp: " * string(timestamp))
+        @info("Runtime: " * string(runtime) * " seconds")
+        
+        return ans
+    else
+        @info(string("Loading from ", path, "\n"))
+        data = BSON.load(path, mod)
+        
+        # Display metadata if it exists
+        if haskey(data, :metadata)
+            meta = data[:metadata]
+            if haskey(meta, :version)
+                @info("Version: " * first(split(meta[:version], '\n')))
+            end
+            if haskey(meta, :timestamp)
+                @info("Timestamp: " * string(meta[:timestamp]))
+            end
+            if haskey(meta, :runtime)
+                @info("Runtime: " * string(meta[:runtime]) * " seconds")
+            end
+        end
+        
         return data[:ans]
     end
 end
