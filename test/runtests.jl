@@ -215,6 +215,15 @@ end
 
     # 3c. Load - did variables enter workspace correctly?
     @test out == (; x = [1, 2, 3], y = 4, z = "test")
+
+    # 4. Nothing case
+    @test_logs (:info, "No path provided, running without caching.") cache(nothing) do
+        x = collect(1:3)
+        y = 4
+        z = "test"
+        (; x = x, y = y, z = z)
+    end
+    @test out == (; x = [1, 2, 3], y = 4, z = "test")
 end
 
 module MyFuncModule
