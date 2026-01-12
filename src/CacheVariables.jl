@@ -123,5 +123,9 @@ function cache(@nospecialize(f), path; mod = @__MODULE__)
         return data[:ans]
     end
 end
+function cache(@nospecialize(f), ::Nothing; mod = @__MODULE__)
+    @info("No path provided, running without caching.")
+    return f()
+end
 
 end # module
