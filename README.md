@@ -46,6 +46,18 @@ julia> cache("test.bson") do
 (a = "a very time-consuming quantity to compute", b = "a very long simulation to run")
 ```
 
+If the path is set to `nothing`, then caching is skipped and the function is simply run.
+```julia
+julia> cache(nothing) do
+         a = "a very time-consuming quantity to compute"
+         b = "a very long simulation to run"
+         return (; a = a, b = b)
+       end
+[ Info: No path provided, running without caching.
+(a = "a very time-consuming quantity to compute", b = "a very long simulation to run")
+```
+This can be useful for conditionally saving a cache.
+
 ## Macro form
 
 The macro form looks at the code to determine what variables to save.
