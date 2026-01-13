@@ -162,10 +162,10 @@ julia> cachemeta("test.bson") do
 """
 function cachemeta(@nospecialize(f), path; mod = @__MODULE__)
     version, timestamp, runtime, ans = cache(path; mod = mod) do
-        v = VERSION
-        ts = Dates.now(Dates.UTC)
-        rt = @elapsed result = f()
-        return (v, ts, rt, result)
+        version = VERSION
+        timestamp = Dates.now(Dates.UTC)
+        runtime = @elapsed result = f()
+        return (version, timestamp, runtime, result)
     end
     @info "Run was started at $timestamp and took $runtime seconds."
     return ans
