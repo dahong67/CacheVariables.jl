@@ -309,10 +309,10 @@ end
 module MyMetaModule
 using CacheVariables, Test, DataFrames
 
-@testset "Function form - in module" begin
+@testset "cachemeta form - in module" begin
     # 0. module test path
     dirpath = joinpath(@__DIR__, "data")
-    modpath = joinpath(dirpath, "funcmodtest.bson")
+    modpath = joinpath(dirpath, "metamodtest.bson")
 
     # 1a. save
     out = cachemeta(modpath; mod = @__MODULE__) do
