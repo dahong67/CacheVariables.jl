@@ -1,4 +1,4 @@
-using CacheVariables, BSON, Dates, Test
+using CacheVariables, BSON, Dates, JLD2, Test
 
 ## Add data directory, define data file path
 dirpath = joinpath(@__DIR__, "data")
@@ -336,6 +336,83 @@ using CacheVariables, Test, DataFrames
 
     # 3a. load
     out = cachemeta(modpath; mod = @__MODULE__) do
+        DataFrame(a = 1:10, b = 'a':'j')
+    end
+
+    # 3b. check: did variables enter workspace correctly?
+    @test out == DataFrame(a = 1:10, b = 'a':'j')
+end
+
+end
+
+## Test JLD2 format
+@testset "JLD2 format" begin
+    jld2path = joinpath(dirpath, "jld2test.jld2")
+
+    # 1a. Save - verify log message
+    @test_logs (:info, "Saving to $jld2path\n") cache(jld2path) do
+        x = collect(1:3)
+        y = 4
+        z = "test"
+        (; x = x, y = y, z = z)
+    end
+
+    # 1b. Save - save values to cache
+    rm(jld2path)
+    out = cache(jld2path) do
+        x = collect(1:3)
+        y = 4
+        z = "test"
+        (; x = x, y = y, z = z)
+    end
+
+    # 1c. Save - did variables enter workspace correctly?
+    @test out == (; x = [1, 2, 3], y = 4, z = "test")
+
+    # 2. Reset - set all variables to nothing
+    out = nothing
+
+    # 3a. Load - verify log message
+    @test_logs (:info, "Loading from $jld2path\n") cache(jld2path) do
+        x = collect(1:3)
+        y = 4
+        z = "test"
+        (; x = x, y = y, z = z)
+    end
+
+    # 3b. Load - load values from cache
+    out = cache(jld2path) do
+        x = collect(1:3)
+        y = 4
+        z = "test"
+        (; x = x, y = y, z = z)
+    end
+
+    # 3c. Load - did variables enter workspace correctly?
+    @test out == (; x = [1, 2, 3], y = 4, z = "test")
+end
+
+module MyJLD2Module
+using CacheVariables, Test, DataFrames, JLD2
+
+@testset "JLD2 - in module" begin
+    # 0. module test path
+    dirpath = joinpath(@__DIR__, "data")
+    modpath = joinpath(dirpath, "jld2modtest.jld2")
+
+    # 1a. save
+    out = cache(modpath) do
+        DataFrame(a = 1:10, b = 'a':'j')
+    end
+
+    # 1b. check: did variables enter workspace correctly?
+    @test out == DataFrame(a = 1:10, b = 'a':'j')
+
+    # 2. set all variables to nothing
+    out = nothing
+
+    # 3a. load
+    out = cache(modpath) do
         DataFrame(a = 1:10, b = 'a':'j')
     end
 
