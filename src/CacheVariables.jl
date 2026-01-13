@@ -1,6 +1,7 @@
 module CacheVariables
 
 using BSON
+using FileIO
 import Dates
 import Logging: @info
 
@@ -17,9 +18,11 @@ end
 """
     @cache path code [overwrite]
 
-Cache results from running `code` using BSON file at `path`.
+Cache results from running `code` using the file at `path`.
 Load if the file exists; run and save if it does not.
 Run and save either way if `overwrite` is true (default is false).
+
+The file format is determined by the file extension (e.g., `.bson`, `.jld2`, `.mat`).
 
 Tip: Use `begin...end` for `code` to cache blocks of code.
 
@@ -72,23 +75,30 @@ macro cache(path, ex::Expr, overwrite = false)
             _msg = ispath($(esc(path))) ? "Overwriting " : "Saving to "
             @info(string(_msg, $(esc(path)), "\n", $(vardesc)))
             mkpath(splitdir($(esc(path)))[1])
-            bson($(esc(path)); $(esc(varlist))..., ans = _ans)
+            _data = Dict{String,Any}()
+            $([:(_data[$(String(var))] = $(esc(var))) for var in vars]...)
+            _data["ans"] = _ans
+            FileIO.save($(esc(path)), _data)
             _ans
         else
             @info(string("Loading from ", $(esc(path)), "\n", $(vardesc)))
-            data = BSON.load($(esc(path)), @__MODULE__)
-            $(esc(vartuple)) = getindex.(Ref(data), $vars)
-            data[:ans]
+            _data = FileIO.load($(esc(path)))
+            $(esc(vartuple)) = getindex.(Ref(_data), $(map(String, vars)))
+            _data["ans"]
         end
     end
 end
 
 """
-    cache(f, path; mod = @__MODULE__)
+    cache(f, path; kwargs...)
 
-Cache output from running `f()` using BSON file at `path`.
+Cache output from running `f()` using the file at `path`.
 Load if the file exists; run and save if it does not.
-Use `mod` keyword argument to specify module.
+
+The file format is determined by the file extension (e.g., `.bson`, `.jld2`, `.mat`).
+
+Additional keyword arguments are passed to the underlying save/load functions.
+For BSON files, you can pass `mod = @__MODULE__` to specify the module for loading.
 
 Tip: Use `do...end` to cache output from a block of code.
 
@@ -109,32 +119,55 @@ julia> cache("test.bson") do
        end
 [ Info: Loading from test.bson
 (a = "a very time-consuming quantity to compute", b = "a very long simulation to run")
+
+julia> cache("test.jld2") do
+         return Dict("result" => 42)
+       end
+[ Info: Saving to test.jld2
+Dict{String, Int64} with 1 entry:
+  "result" => 42
 ```
 """
-function cache(@nospecialize(f), path; mod = @__MODULE__)
+function cache(@nospecialize(f), path; kwargs...)
     if !ispath(path)
         ans = f()
         @info(string("Saving to ", path, "\n"))
         mkpath(splitdir(path)[1])
-        bson(path; ans = ans)
+        # For BSON files, use BSON.jl directly to maintain compatibility
+        if endswith(path, ".bson")
+            bson(path; ans = ans)
+        else
+            FileIO.save(path, Dict("ans" => ans); kwargs...)
+        end
         return ans
     else
         @info(string("Loading from ", path, "\n"))
-        data = BSON.load(path, mod)
-        return data[:ans]
+        # For BSON files with mod argument, use BSON.load directly
+        if endswith(path, ".bson") && haskey(kwargs, :mod)
+            data = BSON.load(path, kwargs[:mod])
+            return data[:ans]
+        else
+            data = FileIO.load(path; kwargs...)
+            # BSON through FileIO returns Symbol keys, others return String keys
+            return get(data, "ans", get(data, :ans, nothing))
+        end
     end
 end
-function cache(@nospecialize(f), ::Nothing; mod = @__MODULE__)
+function cache(@nospecialize(f), ::Nothing; kwargs...)
     @info("No path provided, running without caching.")
     return f()
 end
 
 """
-    cachemeta(f, path; mod = @__MODULE__)
+    cachemeta(f, path; kwargs...)
 
-Cache output from running `f()` using BSON file at `path` with additional metadata.
+Cache output from running `f()` using the file at `path` with additional metadata.
 Load if the file exists; run and save if it does not.
-Use `mod` keyword argument to specify module.
+
+The file format is determined by the file extension (e.g., `.bson`, `.jld2`, `.mat`).
+
+Additional keyword arguments are passed to the underlying save/load functions.
+For BSON files, you can pass `mod = @__MODULE__` to specify the module for loading.
 
 Saves and displays the following metadata:
 - Julia version (from `VERSION`)
@@ -164,8 +197,8 @@ julia> cachemeta("test.bson") do
 (a = "a very time-consuming quantity to compute", b = "a very long simulation to run")
 ```
 """
-function cachemeta(@nospecialize(f), path; mod = @__MODULE__)
-    version, whenrun, runtime, ans = cache(path; mod = mod) do
+function cachemeta(@nospecialize(f), path; kwargs...)
+    version, whenrun, runtime, ans = cache(path; kwargs...) do
         version = VERSION
         whenrun = Dates.now(Dates.UTC)
         runtime = @elapsed ans = f()
