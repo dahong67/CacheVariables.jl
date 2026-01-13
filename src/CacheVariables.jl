@@ -75,16 +75,39 @@ macro cache(path, ex::Expr, overwrite = false)
             _msg = ispath($(esc(path))) ? "Overwriting " : "Saving to "
             @info(string(_msg, $(esc(path)), "\n", $(vardesc)))
             mkpath(splitdir($(esc(path)))[1])
-            _data = Dict{String,Any}()
-            $([:(_data[$(String(var))] = $(esc(var))) for var in vars]...)
-            _data["ans"] = _ans
-            FileIO.save($(esc(path)), _data)
+            # For BSON files, use BSON.bson to maintain backward compatibility (Symbol keys)
+            # For other formats, use FileIO.save
+            if endswith($(esc(path)), ".bson")
+                bson($(esc(path)); $(esc(varlist))..., ans = _ans)
+            else
+                _data = Dict{String,Any}()
+                $([:(_data[$(String(var))] = $(esc(var))) for var in vars]...)
+                _data["ans"] = _ans
+                FileIO.save($(esc(path)), _data)
+            end
             _ans
         else
             @info(string("Loading from ", $(esc(path)), "\n", $(vardesc)))
             _data = FileIO.load($(esc(path)))
-            $(esc(vartuple)) = getindex.(Ref(_data), $(map(String, vars)))
-            _data["ans"]
+            # Handle both String and Symbol keys for compatibility
+            _vars_strs = $(map(String, vars))
+            _vars_syms = $vars
+            $(esc(vartuple)) = map(_vars_strs, _vars_syms) do str, sym
+                if haskey(_data, str)
+                    _data[str]
+                elseif haskey(_data, sym)
+                    _data[sym]
+                else
+                    error("Cache file $($(esc(path))) missing required key: $str")
+                end
+            end
+            if haskey(_data, "ans")
+                _data["ans"]
+            elseif haskey(_data, :ans)
+                _data[:ans]
+            else
+                error("Cache file $($(esc(path))) missing required key: ans")
+            end
         end
     end
 end
@@ -149,7 +172,13 @@ function cache(@nospecialize(f), path; kwargs...)
         else
             data = FileIO.load(path; kwargs...)
             # BSON through FileIO returns Symbol keys, others return String keys
-            return get(data, "ans", get(data, :ans, nothing))
+            if haskey(data, "ans")
+                return data["ans"]
+            elseif haskey(data, :ans)
+                return data[:ans]
+            else
+                error("Cache file $path does not contain required 'ans' key. File may be corrupted or incompatible.")
+            end
         end
     end
 end
