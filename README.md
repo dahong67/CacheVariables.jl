@@ -4,6 +4,7 @@
 [![codecov](https://codecov.io/gh/dahong67/CacheVariables.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/dahong67/CacheVariables.jl)
 
 A lightweight way to save outputs from (expensive) computations.
+Supports multiple file formats via [FileIO.jl](https://github.com/JuliaIO/FileIO.jl), including BSON and JLD2.
 
 ## Function form
 
@@ -19,8 +20,9 @@ end
 ```
 
 The first time this runs,
-it saves the output in a BSON file called `test.bson`.
-Subsequent runs load the saved output from the file `test.bson`
+it saves the output in a file called `test.bson`.
+The file format is determined by the extension (`.bson`, `.jld2`, etc.).
+Subsequent runs load the saved output from the file
 rather than re-running the potentially time-consuming computations!
 Especially handy for long simulations.
 
@@ -58,6 +60,50 @@ julia> cache(nothing) do
 ```
 This can be useful for conditionally saving a cache (see [Using pattern 3 on a cluster](#using-pattern-3-on-a-cluster) below).
 
+## File formats
+
+CacheVariables.jl uses [FileIO.jl](https://github.com/JuliaIO/FileIO.jl) to support multiple file formats.
+The format is automatically determined by the file extension:
+
+- **`.bson`** - [BSON.jl](https://github.com/JuliaIO/BSON.jl) format (default, works well for most Julia types)
+- **`.jld2`** - [JLD2.jl](https://github.com/JuliaIO/JLD2.jl) format (excellent support for arbitrary Julia types, including `BigInt`)
+- Other formats may work depending on FileIO.jl support
+
+### Using JLD2
+
+JLD2 provides excellent support for arbitrary Julia types and may handle some edge cases better than BSON:
+
+```julia
+julia> cache("results.jld2") do
+         big_number = big"123456789012345678901234567890"
+         data = (; x = 1:10, y = rand(10), z = "results")
+         return (; big_number = big_number, data = data)
+       end
+[ Info: Saving to results.jld2
+(big_number = 123456789012345678901234567890, data = (x = 1:10, y = [0.123, ...], z = "results"))
+
+julia> cache("results.jld2") do
+         big_number = big"123456789012345678901234567890"
+         data = (; x = 1:10, y = rand(10), z = "results")
+         return (; big_number = big_number, data = data)
+       end
+[ Info: Loading from results.jld2
+(big_number = 123456789012345678901234567890, data = (x = 1:10, y = [0.123, ...], z = "results"))
+```
+
+### Format-specific options
+
+You can pass keyword arguments to the underlying save/load functions.
+For BSON files, you can pass the `mod` keyword to specify the module context for loading:
+
+```julia
+cache("data.bson"; mod = @__MODULE__) do
+    # your computation
+end
+```
+
+This is particularly useful when working in modules or in Pluto notebooks.
+
 ## Macro form
 
 The macro form looks at the code to determine what variables to save.
@@ -73,8 +119,9 @@ end
 The first time this block runs,
 it identifies the variables `a` and `b` and saves them
 (in addition to the final output `100` that is saved as `ans`)
-in a BSON file called `test.bson`.
-Subsequent runs load the saved values from the file `test.bson`
+in a file called `test.bson`.
+The file format is determined by the extension (`.bson`, `.jld2`, etc.).
+Subsequent runs load the saved values from the file
 rather than re-running the potentially time-consuming computations!
 Especially handy for long simulations.
 
