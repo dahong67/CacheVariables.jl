@@ -1,4 +1,4 @@
-using CacheVariables, BSON, Test
+using CacheVariables, BSON, Dates, Test
 
 ## Add data directory, define data file path
 dirpath = joinpath(@__DIR__, "data")
@@ -247,6 +247,95 @@ using CacheVariables, Test, DataFrames
 
     # 3a. load
     out = cache(modpath; mod = @__MODULE__) do
+        DataFrame(a = 1:10, b = 'a':'j')
+    end
+
+    # 3b. check: did variables enter workspace correctly?
+    @test out == DataFrame(a = 1:10, b = 'a':'j')
+end
+
+end
+
+## Test cachemeta function form
+@testset "cachemeta form" begin
+    metapath = joinpath(dirpath, "metatest.bson")
+
+    # 1a. Save - verify log messages (at least check for "Saving to" message)
+    @test_logs (:info, "Saving to $metapath\n") match_mode=:any cachemeta(metapath) do
+        x = collect(1:3)
+        y = 4
+        z = "test"
+        (; x = x, y = y, z = z)
+    end
+
+    # 1b. Save - save values to cache
+    rm(metapath)
+    out = cachemeta(metapath) do
+        x = collect(1:3)
+        y = 4
+        z = "test"
+        (; x = x, y = y, z = z)
+    end
+
+    # 1c. Save - did output return correctly?
+    @test out == (; x = [1, 2, 3], y = 4, z = "test")
+
+    # 1d. Verify metadata was saved (stored as tuple with VERSION, timestamp, runtime, result)
+    data = BSON.load(metapath)
+    @test haskey(data, :ans)
+    result_tuple = data[:ans]
+    @test result_tuple isa Tuple
+    @test length(result_tuple) == 4
+    @test result_tuple[1] isa VersionNumber  # VERSION
+    @test result_tuple[2] isa Dates.DateTime  # timestamp
+    @test result_tuple[3] isa Real  # runtime
+    @test result_tuple[3] >= 0
+    @test result_tuple[4] == (; x = [1, 2, 3], y = 4, z = "test")  # actual result
+
+    # 2. Reset - set all variables to nothing
+    out = nothing
+
+    # 3a. Load - verify log message (at least check for "Loading from" message)
+    @test_logs (:info, "Loading from $metapath\n") match_mode=:any cachemeta(metapath) do
+        x = collect(1:3)
+        y = 4
+        z = "test"
+        (; x = x, y = y, z = z)
+    end
+
+    # 3b. Load - load values from cache
+    out = cachemeta(metapath) do
+        x = collect(1:3)
+        y = 4
+        z = "test"
+        (; x = x, y = y, z = z)
+    end
+
+    # 3c. Load - did output return correctly?
+    @test out == (; x = [1, 2, 3], y = 4, z = "test")
+end
+
+module MyMetaModule
+using CacheVariables, Test, DataFrames
+
+@testset "cachemeta form - in module" begin
+    # 0. module test path
+    dirpath = joinpath(@__DIR__, "data")
+    modpath = joinpath(dirpath, "metamodtest.bson")
+
+    # 1a. save
+    out = cachemeta(modpath; mod = @__MODULE__) do
+        DataFrame(a = 1:10, b = 'a':'j')
+    end
+
+    # 1b. check: did variables enter workspace correctly?
+    @test out == DataFrame(a = 1:10, b = 'a':'j')
+
+    # 2. set all variables to nothing
+    out = nothing
+
+    # 3a. load
+    out = cachemeta(modpath; mod = @__MODULE__) do
         DataFrame(a = 1:10, b = 'a':'j')
     end
 

@@ -1,9 +1,10 @@
 module CacheVariables
 
 using BSON
+import Dates
 import Logging: @info
 
-export @cache, cache
+export @cache, cache, cachemeta
 
 function _cachevars(ex::Expr)
     (ex.head === :(=)) && return Symbol[ex.args[1]]
@@ -126,6 +127,52 @@ end
 function cache(@nospecialize(f), ::Nothing; mod = @__MODULE__)
     @info("No path provided, running without caching.")
     return f()
+end
+
+"""
+    cachemeta(f, path; mod = @__MODULE__)
+
+Cache output from running `f()` using BSON file at `path` with additional metadata.
+Load if the file exists; run and save if it does not.
+Use `mod` keyword argument to specify module.
+
+Saves and displays the following metadata:
+- Julia version (from `VERSION`)
+- Time when run (from `Dates.now(Dates.UTC)`)
+- Runtime of code (in seconds)
+
+Tip: Use `do...end` to cache output from a block of code.
+
+# Examples
+```julia-repl
+julia> cachemeta("test.bson") do
+         a = "a very time-consuming quantity to compute"
+         b = "a very long simulation to run"
+         return (; a = a, b = b)
+       end
+[ Info: Saving to test.bson
+[ Info: Run was started at 2024-01-01T00:00:00.000 and took 0.123 seconds.
+(a = "a very time-consuming quantity to compute", b = "a very long simulation to run")
+
+julia> cachemeta("test.bson") do
+         a = "a very time-consuming quantity to compute"
+         b = "a very long simulation to run"
+         return (; a = a, b = b)
+       end
+[ Info: Loading from test.bson
+[ Info: Run was started at 2024-01-01T00:00:00.000 and took 0.123 seconds.
+(a = "a very time-consuming quantity to compute", b = "a very long simulation to run")
+```
+"""
+function cachemeta(@nospecialize(f), path; mod = @__MODULE__)
+    version, whenrun, runtime, ans = cache(path; mod = mod) do
+        version = VERSION
+        whenrun = Dates.now(Dates.UTC)
+        runtime = @elapsed ans = f()
+        return (version, whenrun, runtime, ans)
+    end
+    @info "Run was started at $whenrun and took $runtime seconds."
+    return ans
 end
 
 end # module
