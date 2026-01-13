@@ -1,7 +1,7 @@
 module CacheVariables
 
 using BSON
-using FileIO
+using JLD2
 import Dates
 import Logging: @info
 
@@ -22,7 +22,7 @@ Cache results from running `code` using the file at `path`.
 Load if the file exists; run and save if it does not.
 Run and save either way if `overwrite` is true (default is false).
 
-The file format is determined by the file extension (e.g., `.bson`, `.jld2`, `.mat`).
+The file format is determined by the file extension: `.bson` or `.jld2`.
 
 Tip: Use `begin...end` for `code` to cache blocks of code.
 
@@ -75,38 +75,47 @@ macro cache(path, ex::Expr, overwrite = false)
             _msg = ispath($(esc(path))) ? "Overwriting " : "Saving to "
             @info(string(_msg, $(esc(path)), "\n", $(vardesc)))
             mkpath(splitdir($(esc(path)))[1])
-            # For BSON files, use BSON.bson to maintain backward compatibility (Symbol keys)
-            # For other formats, use FileIO.save
+            # Determine format by extension
             if endswith($(esc(path)), ".bson")
+                # Use BSON.bson to maintain backward compatibility (Symbol keys)
                 bson($(esc(path)); $(esc(varlist))..., ans = _ans)
-            else
+            elseif endswith($(esc(path)), ".jld2")
+                # Use JLD2 for better type support
                 _data = Dict{String,Any}()
                 $([:(_data[$(String(var))] = $(esc(var))) for var in vars]...)
                 _data["ans"] = _ans
-                FileIO.save($(esc(path)), _data)
+                JLD2.jldsave($(esc(path)); _data...)
+            else
+                error("Unsupported file extension for $($(esc(path))). Only .bson and .jld2 are supported.")
             end
             _ans
         else
             @info(string("Loading from ", $(esc(path)), "\n", $(vardesc)))
-            _data = FileIO.load($(esc(path)))
-            # Handle both String and Symbol keys for compatibility
-            _vars_strs = $(map(String, vars))
-            _vars_syms = $vars
-            $(esc(vartuple)) = map(_vars_strs, _vars_syms) do str, sym
-                if haskey(_data, str)
-                    _data[str]
-                elseif haskey(_data, sym)
-                    _data[sym]
-                else
-                    error("Cache file $($(esc(path))) missing required key: $str")
-                end
-            end
-            if haskey(_data, "ans")
-                _data["ans"]
-            elseif haskey(_data, :ans)
+            # Determine format by extension
+            if endswith($(esc(path)), ".bson")
+                _data = BSON.load($(esc(path)), @__MODULE__)
+                # BSON uses Symbol keys
+                _vars_syms = $vars
+                $(esc(vartuple)) = getindex.(Ref(_data), _vars_syms)
                 _data[:ans]
+            elseif endswith($(esc(path)), ".jld2")
+                _data = JLD2.load($(esc(path)))
+                # JLD2 uses String keys
+                _vars_strs = $(map(String, vars))
+                $(esc(vartuple)) = map(_vars_strs) do str
+                    if haskey(_data, str)
+                        _data[str]
+                    else
+                        error("Cache file $($(esc(path))) missing required key: $str")
+                    end
+                end
+                if haskey(_data, "ans")
+                    _data["ans"]
+                else
+                    error("Cache file $($(esc(path))) missing required key: ans")
+                end
             else
-                error("Cache file $($(esc(path))) missing required key: ans")
+                error("Unsupported file extension for $($(esc(path))). Only .bson and .jld2 are supported.")
             end
         end
     end
@@ -118,7 +127,7 @@ end
 Cache output from running `f()` using the file at `path`.
 Load if the file exists; run and save if it does not.
 
-The file format is determined by the file extension (e.g., `.bson`, `.jld2`, `.mat`).
+The file format is determined by the file extension: `.bson` or `.jld2`.
 
 Additional keyword arguments are passed to the underlying save/load functions.
 For BSON files, you can pass `mod = @__MODULE__` to specify the module for loading.
@@ -144,11 +153,10 @@ julia> cache("test.bson") do
 (a = "a very time-consuming quantity to compute", b = "a very long simulation to run")
 
 julia> cache("test.jld2") do
-         return Dict("result" => 42)
+         return big"123456789012345678901234567890"
        end
 [ Info: Saving to test.jld2
-Dict{String, Int64} with 1 entry:
-  "result" => 42
+123456789012345678901234567890
 ```
 """
 function cache(@nospecialize(f), path; kwargs...)
@@ -156,29 +164,38 @@ function cache(@nospecialize(f), path; kwargs...)
         ans = f()
         @info(string("Saving to ", path, "\n"))
         mkpath(splitdir(path)[1])
-        # For BSON files, use BSON.jl directly to maintain compatibility
+        # Determine format by extension
         if endswith(path, ".bson")
+            # Use BSON.jl directly to maintain compatibility
             bson(path; ans = ans)
+        elseif endswith(path, ".jld2")
+            # Use JLD2 for better type support
+            JLD2.jldsave(path; ans = ans)
         else
-            FileIO.save(path, Dict("ans" => ans); kwargs...)
+            error("Unsupported file extension for $path. Only .bson and .jld2 are supported.")
         end
         return ans
     else
         @info(string("Loading from ", path, "\n"))
-        # For BSON files with mod argument, use BSON.load directly
-        if endswith(path, ".bson") && haskey(kwargs, :mod)
-            data = BSON.load(path, kwargs[:mod])
+        # Determine format by extension
+        if endswith(path, ".bson")
+            # For BSON files with mod argument, use BSON.load directly
+            if haskey(kwargs, :mod)
+                data = BSON.load(path, kwargs[:mod])
+            else
+                data = BSON.load(path)
+            end
             return data[:ans]
-        else
-            data = FileIO.load(path; kwargs...)
-            # BSON through FileIO returns Symbol keys, others return String keys
+        elseif endswith(path, ".jld2")
+            # Use JLD2
+            data = JLD2.load(path)
             if haskey(data, "ans")
                 return data["ans"]
-            elseif haskey(data, :ans)
-                return data[:ans]
             else
                 error("Cache file $path does not contain required 'ans' key. File may be corrupted or incompatible.")
             end
+        else
+            error("Unsupported file extension for $path. Only .bson and .jld2 are supported.")
         end
     end
 end
@@ -193,7 +210,7 @@ end
 Cache output from running `f()` using the file at `path` with additional metadata.
 Load if the file exists; run and save if it does not.
 
-The file format is determined by the file extension (e.g., `.bson`, `.jld2`, `.mat`).
+The file format is determined by the file extension: `.bson` or `.jld2`.
 
 Additional keyword arguments are passed to the underlying save/load functions.
 For BSON files, you can pass `mod = @__MODULE__` to specify the module for loading.

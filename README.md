@@ -4,7 +4,7 @@
 [![codecov](https://codecov.io/gh/dahong67/CacheVariables.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/dahong67/CacheVariables.jl)
 
 A lightweight way to save outputs from (expensive) computations.
-Supports multiple file formats via [FileIO.jl](https://github.com/JuliaIO/FileIO.jl), including BSON and JLD2.
+Supports BSON and JLD2 file formats.
 
 ## Function form
 
@@ -21,7 +21,7 @@ end
 
 The first time this runs,
 it saves the output in a file called `test.bson`.
-The file format is determined by the extension (`.bson`, `.jld2`, etc.).
+The file format is determined by the extension (`.bson` or `.jld2`).
 Subsequent runs load the saved output from the file
 rather than re-running the potentially time-consuming computations!
 Especially handy for long simulations.
@@ -62,12 +62,12 @@ This can be useful for conditionally saving a cache (see [Using pattern 3 on a c
 
 ## File formats
 
-CacheVariables.jl uses [FileIO.jl](https://github.com/JuliaIO/FileIO.jl) to support multiple file formats.
-The format is automatically determined by the file extension:
+CacheVariables.jl supports two file formats:
 
-- **`.bson`** - [BSON.jl](https://github.com/JuliaIO/BSON.jl) format (default, works well for most Julia types)
+- **`.bson`** - [BSON.jl](https://github.com/JuliaIO/BSON.jl) format (works well for most Julia types)
 - **`.jld2`** - [JLD2.jl](https://github.com/JuliaIO/JLD2.jl) format (excellent support for arbitrary Julia types, including `BigInt`)
-- Other formats may work depending on FileIO.jl support
+
+The format is automatically determined by the file extension.
 
 ### Using JLD2
 
@@ -120,7 +120,7 @@ The first time this block runs,
 it identifies the variables `a` and `b` and saves them
 (in addition to the final output `100` that is saved as `ans`)
 in a file called `test.bson`.
-The file format is determined by the extension (`.bson`, `.jld2`, etc.).
+The file format is determined by the extension (`.bson` or `.jld2`).
 Subsequent runs load the saved values from the file
 rather than re-running the potentially time-consuming computations!
 Especially handy for long simulations.

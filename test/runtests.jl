@@ -1,4 +1,4 @@
-using CacheVariables, BSON, Dates, JLD2, Test
+using CacheVariables, BSON, Dates, Test
 
 ## Add data directory, define data file path
 dirpath = joinpath(@__DIR__, "data")
@@ -393,7 +393,7 @@ end
 end
 
 module MyJLD2Module
-using CacheVariables, Test, DataFrames, JLD2
+using CacheVariables, Test, DataFrames
 
 @testset "JLD2 - in module" begin
     # 0. module test path
