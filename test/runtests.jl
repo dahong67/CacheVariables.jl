@@ -306,7 +306,7 @@ end
     @test out == (; x = [1, 2, 3], y = 4, z = "test")
 end
 
-module MyFuncModule
+module MyMetaModule
 using CacheVariables, Test, DataFrames
 
 @testset "Function form - in module" begin
@@ -315,7 +315,7 @@ using CacheVariables, Test, DataFrames
     modpath = joinpath(dirpath, "funcmodtest.bson")
 
     # 1a. save
-    out = cache(modpath; mod = @__MODULE__) do
+    out = cachemeta(modpath; mod = @__MODULE__) do
         DataFrame(a = 1:10, b = 'a':'j')
     end
 
@@ -326,7 +326,7 @@ using CacheVariables, Test, DataFrames
     out = nothing
 
     # 3a. load
-    out = cache(modpath; mod = @__MODULE__) do
+    out = cachemeta(modpath; mod = @__MODULE__) do
         DataFrame(a = 1:10, b = 'a':'j')
     end
 
