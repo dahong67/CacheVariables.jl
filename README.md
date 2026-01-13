@@ -4,7 +4,6 @@
 [![codecov](https://codecov.io/gh/dahong67/CacheVariables.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/dahong67/CacheVariables.jl)
 
 A lightweight way to save outputs from (expensive) computations.
-Supports BSON and JLD2 file formats.
 
 ## Function form
 
@@ -20,8 +19,9 @@ end
 ```
 
 The first time this runs,
-it saves the output in a file called `test.bson`.
-The file format is determined by the extension (`.bson` or `.jld2`).
+it saves the output in a BSON file called `test.bson`.
+The file format is determined by the extension:
+`.bson` for [BSON.jl](https://github.com/JuliaIO/BSON.jl) and `.jld2` for [JLD2.jl](https://github.com/JuliaIO/JLD2.jl).
 Subsequent runs load the saved output from the file
 rather than re-running the potentially time-consuming computations!
 Especially handy for long simulations.
@@ -60,50 +60,6 @@ julia> cache(nothing) do
 ```
 This can be useful for conditionally saving a cache (see [Using pattern 3 on a cluster](#using-pattern-3-on-a-cluster) below).
 
-## File formats
-
-CacheVariables.jl supports two file formats:
-
-- **`.bson`** - [BSON.jl](https://github.com/JuliaIO/BSON.jl) format (works well for most Julia types)
-- **`.jld2`** - [JLD2.jl](https://github.com/JuliaIO/JLD2.jl) format (excellent support for arbitrary Julia types, including `BigInt`)
-
-The format is automatically determined by the file extension.
-
-### Using JLD2
-
-JLD2 provides excellent support for arbitrary Julia types and may handle some edge cases better than BSON:
-
-```julia
-julia> cache("results.jld2") do
-         big_number = big"123456789012345678901234567890"
-         data = (; x = 1:10, y = rand(10), z = "results")
-         return (; big_number = big_number, data = data)
-       end
-[ Info: Saving to results.jld2
-(big_number = 123456789012345678901234567890, data = (x = 1:10, y = [0.123, ...], z = "results"))
-
-julia> cache("results.jld2") do
-         big_number = big"123456789012345678901234567890"
-         data = (; x = 1:10, y = rand(10), z = "results")
-         return (; big_number = big_number, data = data)
-       end
-[ Info: Loading from results.jld2
-(big_number = 123456789012345678901234567890, data = (x = 1:10, y = [0.123, ...], z = "results"))
-```
-
-### Format-specific options
-
-You can pass keyword arguments to the underlying save/load functions.
-For BSON files, you can pass the `mod` keyword to specify the module context for loading:
-
-```julia
-cache("data.bson"; mod = @__MODULE__) do
-    # your computation
-end
-```
-
-This is particularly useful when working in modules or in Pluto notebooks.
-
 ## Macro form
 
 The macro form looks at the code to determine what variables to save.
@@ -119,8 +75,9 @@ end
 The first time this block runs,
 it identifies the variables `a` and `b` and saves them
 (in addition to the final output `100` that is saved as `ans`)
-in a file called `test.bson`.
-The file format is determined by the extension (`.bson` or `.jld2`).
+in a BSON file called `test.bson`.
+As with the function form, the file format is determined by the extension:
+`.bson` for [BSON.jl](https://github.com/JuliaIO/BSON.jl) and `.jld2` for [JLD2.jl](https://github.com/JuliaIO/JLD2.jl).
 Subsequent runs load the saved values from the file
 rather than re-running the potentially time-consuming computations!
 Especially handy for long simulations.
@@ -360,6 +317,22 @@ julia> cache(SUBSET === Colon() ? "fullsweep.bson" : nothing) do
  "time-consuming result of run 2"
 ```
 Note that the full cache was not generated here.
+
+## File formats
+
+CacheVariables.jl supports two file formats:
+
+- [BSON.jl](https://github.com/JuliaIO/BSON.jl): use a filename with extension `.bson`
+- [JLD2.jl](https://github.com/JuliaIO/JLD2.jl): use a filename with extension `.jld2`
+
+Optional format-specific arguments can be passed as keyword arguments.
+In particular, for BSON files, you can pass the `mod` keyword to specify the module context for loading:
+```julia
+cache("data.bson"; mod = @__MODULE__) do
+    # your computation
+end
+```
+This can be useful when working in modules or in Pluto notebooks (see, e.g., [https://github.com/JuliaIO/BSON.jl?tab=readme-ov-file#loading-custom-data-types-within-modules](https://github.com/JuliaIO/BSON.jl?tab=readme-ov-file#loading-custom-data-types-within-modules)).
 
 ## Related packages
 
