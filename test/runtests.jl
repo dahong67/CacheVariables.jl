@@ -1,4 +1,4 @@
-using CacheVariables, BSON, Test
+using CacheVariables, BSON, Dates, Test
 
 ## Add data directory, define data file path
 dirpath = joinpath(@__DIR__, "data")
@@ -271,14 +271,17 @@ end
     # 1c. Save - did output return correctly?
     @test out == (; x = [1, 2, 3], y = 4, z = "test")
 
-    # 1d. Verify metadata was saved
+    # 1d. Verify metadata was saved (stored as tuple with VERSION, timestamp, runtime, result)
     data = BSON.load(metapath)
-    @test haskey(data, :metadata)
-    @test haskey(data[:metadata], :version)
-    @test haskey(data[:metadata], :timestamp)
-    @test haskey(data[:metadata], :runtime)
-    @test data[:metadata][:runtime] isa Real
-    @test data[:metadata][:runtime] >= 0
+    @test haskey(data, :ans)
+    result_tuple = data[:ans]
+    @test result_tuple isa Tuple
+    @test length(result_tuple) == 4
+    @test result_tuple[1] isa VersionNumber  # VERSION
+    @test result_tuple[2] isa Dates.DateTime  # timestamp
+    @test result_tuple[3] isa Real  # runtime
+    @test result_tuple[3] >= 0
+    @test result_tuple[4] == (; x = [1, 2, 3], y = 4, z = "test")  # actual result
 
     # 2. Reset - set all variables to nothing
     out = nothing
