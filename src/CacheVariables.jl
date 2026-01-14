@@ -15,16 +15,16 @@ function _cachevars(ex::Expr)
 end
 
 """
-    @cache path begin ... end [overwrite]
+    @cache path begin ... end
+    @cache path map(...)
+    @cache path [... for ... in ...]
 
-Cache the variables defined in a `begin...end` block along with the final output.
+Cache the variables defined in a `begin...end` block, the runs of a `map`, 
+or the elements of a comprehension. Metadata tracking (Julia version, timestamp, 
+runtime) is included automatically.
 
-The macro identifies variables assigned in the block, wraps the code in a `cache` function call,
-and destructures the results back into the original variables. Metadata tracking (Julia version,
-timestamp, runtime) is included automatically.
-
-Load if the file exists; run and save if it does not.
-Run and save either way if `overwrite` is true (default is false).
+For blocks, variables assigned in the block are cached along with the final output.
+For maps and comprehensions, each iteration is cached in a separate file.
 
 # Examples
 ```julia-repl
@@ -37,40 +37,12 @@ julia> @cache "test.bson" begin
 [ Info: Run was started at 2024-01-01T00:00:00.000 and took 0.123 seconds.
 100
 
-julia> @cache "test.bson" begin
-         a = "a very time-consuming quantity to compute"
-         b = "a very long simulation to run"
-         100
-       end
-[ Info: Loading from test.bson
-[ Info: Run was started at 2024-01-01T00:00:00.000 and took 0.123 seconds.
-100
-```
-
----
-
-    @cache path map(iter) do i ... end [overwrite] [merge=true] [bson_mod=@__MODULE__]
-
-Cache the runs of a `map` operation, with each iteration cached in a separate file.
-
-The macro wraps each iteration in a `cache` call, using files like `basename/1.ext`, `basename/2.ext`, etc.
-where the base name and extension are extracted from the provided path. If `merge` is true (default),
-a merged cache file is also created at the provided path after all iterations complete.
-
-# Examples
-```julia-repl
 julia> @cache "results.bson" map(1:3) do i
-         # expensive computation for iteration i
          "result \$i"
        end
 [ Info: Saving to results/1.bson
 [ Info: Run was started at 2024-01-01T00:00:00.000 and took 0.001 seconds.
-[ Info: Saving to results/2.bson
-[ Info: Run was started at 2024-01-01T00:00:00.000 and took 0.001 seconds.
-[ Info: Saving to results/3.bson
-[ Info: Run was started at 2024-01-01T00:00:00.000 and took 0.001 seconds.
-[ Info: Saving to results.bson
-[ Info: Run was started at 2024-01-01T00:00:00.000 and took 0.123 seconds.
+...
 3-element Vector{String}:
  "result 1"
  "result 2"
@@ -87,11 +59,9 @@ macro cache(path, ex::Expr, overwrite = false, merge = true, bson_mod = :(@__MOD
         return _cache_map(path, ex, overwrite, bson_mod, merge)
     elseif ex.head === :comprehension || ex.head === :generator
         # Handle comprehension: @cache "path" [f(i) for i in iter]
-        error("@cache does not yet support comprehensions. Use map form instead.")
+        return _cache_comprehension(path, ex, overwrite, bson_mod, merge)
     else
-        # Wrap other expressions in a block and process
-        wrapped_ex = Expr(:block, ex)
-        return _cache_block(path, wrapped_ex, overwrite, bson_mod)
+        error("@cache only supports begin...end blocks, map expressions, and comprehensions. Got: $(ex.head)")
     end
 end
 
@@ -101,20 +71,16 @@ function _cache_block(path, ex::Expr, overwrite, bson_mod)
     # Build the named tuple constructor for the variables
     varkws = [Expr(:kw, var, esc(var)) for var in vars]
     
-    # Use gensym for macro hygiene
-    result_sym = gensym(:result)
-    ans_sym = gensym(:ans)
-    
     return quote
         begin
-            $(esc(result_sym)) = cache($(esc(path)); bson_mod = $(esc(bson_mod)), overwrite = $(esc(overwrite))) do
-                $(esc(ans_sym)) = $(esc(ex))
-                return (; vars = (; $(varkws...)), ans = $(esc(ans_sym)))
+            result = cache($(esc(path)); bson_mod = $(esc(bson_mod)), overwrite = $(esc(overwrite))) do
+                ans = $(esc(ex))
+                return (; vars = (; $(varkws...)), ans = ans)
             end
             # Extract variables
-            (; $(esc.(vars)...),) = $(esc(result_sym)).vars
+            (; $(esc.(vars)...),) = result.vars
             # Return the final value
-            $(esc(result_sym)).ans
+            result.ans
         end
     end
 end
@@ -135,23 +101,16 @@ function _cache_map(path, ex::Expr, overwrite, bson_mod, merge_cache = true)
         user_params = do_block.args[1]
         body = do_block.args[2]
         
-        # Use gensym for macro hygiene
-        iter_idx_sym = gensym(:cache_iter_idx)
-        
         return quote
             let _path_str = $(esc(path))
                 _base, _ext = splitext(_path_str)
-                _results = map(enumerate($(esc(iter_expr)))) do ($(esc(iter_idx_sym)), $(esc(user_params)))
-                    cache(string(_base, "/", $(esc(iter_idx_sym)), _ext); bson_mod = $(esc(bson_mod)), overwrite = $(esc(overwrite))) do
+                _results = map(enumerate($(esc(iter_expr)))) do (cache_iter_idx, $(esc(user_params)))
+                    cache(joinpath(_base, string(cache_iter_idx, _ext)); bson_mod = $(esc(bson_mod)), overwrite = $(esc(overwrite))) do
                         $(esc(body))
                     end
                 end
                 # Create merged cache if requested
-                if $(esc(merge_cache))
-                    cache(_path_str; bson_mod = $(esc(bson_mod)), overwrite = $(esc(overwrite))) do
-                        _results
-                    end
-                else
+                cache($(esc(merge_cache)) ? _path_str : nothing; bson_mod = $(esc(bson_mod)), overwrite = $(esc(overwrite))) do
                     _results
                 end
             end
@@ -161,27 +120,19 @@ function _cache_map(path, ex::Expr, overwrite, bson_mod, merge_cache = true)
         func_expr = ex.args[2]
         args_exprs = ex.args[3:end]
         
-        # Use gensym for macro hygiene
-        iter_idx_sym = gensym(:cache_iter_idx)
-        elem_sym = gensym(:elem)
-        
         # For multiple arguments, we need to zip them
         if length(args_exprs) == 1
             iter_expr = args_exprs[1]
             return quote
                 let _path_str = $(esc(path))
                     _base, _ext = splitext(_path_str)
-                    _results = map(enumerate($(esc(iter_expr)))) do ($(esc(iter_idx_sym)), $(esc(elem_sym)))
-                        cache(string(_base, "/", $(esc(iter_idx_sym)), _ext); bson_mod = $(esc(bson_mod)), overwrite = $(esc(overwrite))) do
-                            $(esc(func_expr))($(esc(elem_sym)))
+                    _results = map(enumerate($(esc(iter_expr)))) do (cache_iter_idx, elem)
+                        cache(joinpath(_base, string(cache_iter_idx, _ext)); bson_mod = $(esc(bson_mod)), overwrite = $(esc(overwrite))) do
+                            $(esc(func_expr))(elem)
                         end
                     end
                     # Create merged cache if requested
-                    if $(esc(merge_cache))
-                        cache(_path_str; bson_mod = $(esc(bson_mod)), overwrite = $(esc(overwrite))) do
-                            _results
-                        end
-                    else
+                    cache($(esc(merge_cache)) ? _path_str : nothing; bson_mod = $(esc(bson_mod)), overwrite = $(esc(overwrite))) do
                         _results
                     end
                 end
@@ -191,17 +142,13 @@ function _cache_map(path, ex::Expr, overwrite, bson_mod, merge_cache = true)
             return quote
                 let _path_str = $(esc(path))
                     _base, _ext = splitext(_path_str)
-                    _results = map(enumerate(zip($(esc.(args_exprs)...),))) do ($(esc(iter_idx_sym)), $(esc(elem_sym)))
-                        cache(string(_base, "/", $(esc(iter_idx_sym)), _ext); bson_mod = $(esc(bson_mod)), overwrite = $(esc(overwrite))) do
-                            $(esc(func_expr))($(esc(elem_sym))...)
+                    _results = map(enumerate(zip($(esc.(args_exprs)...),))) do (cache_iter_idx, elem)
+                        cache(joinpath(_base, string(cache_iter_idx, _ext)); bson_mod = $(esc(bson_mod)), overwrite = $(esc(overwrite))) do
+                            $(esc(func_expr))(elem...)
                         end
                     end
                     # Create merged cache if requested
-                    if $(esc(merge_cache))
-                        cache(_path_str; bson_mod = $(esc(bson_mod)), overwrite = $(esc(overwrite))) do
-                            _results
-                        end
-                    else
+                    cache($(esc(merge_cache)) ? _path_str : nothing; bson_mod = $(esc(bson_mod)), overwrite = $(esc(overwrite))) do
                         _results
                     end
                 end
@@ -209,6 +156,51 @@ function _cache_map(path, ex::Expr, overwrite, bson_mod, merge_cache = true)
         end
     else
         error("@cache with map requires the pattern: @cache \"path\" map(iter) do i ... end or @cache \"path\" map(func, args...)")
+    end
+end
+
+function _cache_comprehension(path, ex::Expr, overwrite, bson_mod, merge_cache = true)
+    # Handle comprehension: [f(i) for i in iter]
+    # Transform to: map(enumerate(iter)) do (idx, i) cache(...) do f(i) end end
+    
+    # ex is either :comprehension or :generator
+    # For comprehension: ex.args[1] is the generator expression
+    # Generator has form: Expr(:generator, body, iteration_spec)
+    
+    if ex.head === :comprehension
+        gen = ex.args[1]
+    else
+        gen = ex
+    end
+    
+    if !Meta.isexpr(gen, :generator)
+        error("Unexpected comprehension structure")
+    end
+    
+    body = gen.args[1]
+    iter_spec = gen.args[2]
+    
+    # iter_spec is like :(i = iter)
+    if !Meta.isexpr(iter_spec, :(=))
+        error("Unsupported comprehension iteration pattern")
+    end
+    
+    var = iter_spec.args[1]
+    iter_expr = iter_spec.args[2]
+    
+    return quote
+        let _path_str = $(esc(path))
+            _base, _ext = splitext(_path_str)
+            _results = [begin
+                cache(joinpath(_base, string(cache_iter_idx, _ext)); bson_mod = $(esc(bson_mod)), overwrite = $(esc(overwrite))) do
+                    $(esc(body))
+                end
+            end for (cache_iter_idx, $(esc(var))) in enumerate($(esc(iter_expr)))]
+            # Create merged cache if requested
+            cache($(esc(merge_cache)) ? _path_str : nothing; bson_mod = $(esc(bson_mod)), overwrite = $(esc(overwrite))) do
+                _results
+            end
+        end
     end
 end
 
@@ -268,10 +260,9 @@ function cache(@nospecialize(f), path; bson_mod = @__MODULE__, overwrite = false
         whenrun = Dates.now(Dates.UTC)
         runtime = @elapsed val = f()
         _msg = ispath(path) ? "Overwriting " : "Saving to "
-        @info(string(_msg, path, "\n"))
+        @info string(_msg, path, "\nRun was started at ", whenrun, " and took ", runtime, " seconds.")
         mkpath(splitdir(path)[1])
         bson(path; version = version, whenrun = whenrun, runtime = runtime, val = val)
-        @info "Run was started at $whenrun and took $runtime seconds."
         return val
     else
         # Load from cache with info messages including the metadata

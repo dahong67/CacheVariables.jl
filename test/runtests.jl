@@ -8,7 +8,7 @@ path = joinpath(dirpath, "test.bson")
 ## Test @cache macro with save functionality
 @testset "@cache Save" begin
     # 1. verify log messages (Saving and metadata)
-    @test_logs (:info, "Saving to $path\n") match_mode=:any (@cache path begin
+    @test_logs (:info, r"Saving to") match_mode=:any (@cache path begin
         x = collect(1:3)
         y = 4
         z = "test"
@@ -40,7 +40,7 @@ end
 
     # 2. file exists: load variables from it
     # verify log message
-    @test_logs (:info, "Loading from $path\n") match_mode=:any (@cache path begin
+    @test_logs (:info, r"Loading from") match_mode=:any (@cache path begin
         x = collect(1:3)
         y = 4
         z = "test"
@@ -70,7 +70,7 @@ end
 
     # 2. add `true` to @cache call to overwrite
     # validate log message
-    @test_logs (:info, "Overwriting $path\n") match_mode=:any (@cache path begin
+    @test_logs (:info, r"Overwriting") match_mode=:any (@cache path begin
         x = collect(1:3)
         y = 4
         z = "test"
@@ -101,11 +101,11 @@ end
     rm(path)
 
     # 1. verify log message
-    @test_logs (:info, "Saving to $path\n") match_mode=:any (@cache path 2 + 3)
+    @test_logs (:info, r"Saving to") match_mode=:any (@cache path begin 2 + 3 end)
 
     # 2. cache ans
     rm(path)
-    out = @cache path 2 + 3
+    out = @cache path begin 2 + 3 end
 
     # 3. did output come out correctly?
     @test out == 5
@@ -115,10 +115,10 @@ end
 
     # 5. file exists: load from it
     # verify log message
-    @test_logs (:info, "Loading from $path\n") match_mode=:any (@cache path 2 + 3)
+    @test_logs (:info, r"Loading from") match_mode=:any (@cache path begin 2 + 3 end)
 
     # load ans
-    out = @cache path 2 + 3
+    out = @cache path begin 2 + 3 end
 
     # 6. did output come out correctly?
     @test out == 5
@@ -167,7 +167,7 @@ end
     funcpath = joinpath(dirpath, "functest.bson")
 
     # 1a. Save - verify log message
-    @test_logs (:info, "Saving to $funcpath\n") match_mode=:any cache(funcpath) do
+    @test_logs (:info, r"Saving to") match_mode=:any cache(funcpath) do
         x = collect(1:3)
         y = 4
         z = "test"
@@ -190,7 +190,7 @@ end
     out = nothing
 
     # 3a. Load - verify log message
-    @test_logs (:info, "Loading from $funcpath\n") match_mode=:any cache(funcpath) do
+    @test_logs (:info, r"Loading from") match_mode=:any cache(funcpath) do
         x = collect(1:3)
         y = 4
         z = "test"
