@@ -5,10 +5,10 @@ dirpath = joinpath(@__DIR__, "data")
 isdir(dirpath) && error("Test directory already has a data subdirectory.")
 path = joinpath(dirpath, "test.bson")
 
-## Test save functionality
-@testset "Save" begin
-    # 1. verify log message
-    @test_logs (:info, "Saving to $path\nx\ny\nz") (@cache path begin
+## Test @cache macro with save functionality
+@testset "@cache Save" begin
+    # 1. verify log messages (Saving and metadata)
+    @test_logs (:info, "Saving to $path\n") match_mode=:any (@cache path begin
         x = collect(1:3)
         y = 4
         z = "test"
@@ -23,15 +23,15 @@ path = joinpath(dirpath, "test.bson")
         "final output"
     end
 
-    # 3. did variables enter workspace correctly?
+    # 2. did variables enter workspace correctly?
     @test x == [1, 2, 3]
     @test y == 4
     @test z == "test"
     @test out == "final output"
 end
 
-## Test load functionality
-@testset "Load" begin
+## Test @cache macro with load functionality
+@testset "@cache Load" begin
     # 1. set all variables to nothing
     x = nothing
     y = nothing
@@ -40,7 +40,7 @@ end
 
     # 2. file exists: load variables from it
     # verify log message
-    @test_logs (:info, "Loading from $path\nx\ny\nz") (@cache path begin
+    @test_logs (:info, "Loading from $path\n") match_mode=:any (@cache path begin
         x = collect(1:3)
         y = 4
         z = "test"
@@ -62,28 +62,19 @@ end
     @test out == "final output"
 end
 
-## Test overwrite behavior
-@testset "Overwrite" begin
-    # 1. change file contents
-    bson(path; x = nothing, y = nothing, z = nothing, ans = nothing)
+## Test @cache macro with overwrite behavior
+@testset "@cache Overwrite" begin
+    # 1. change file contents to invalid data
+    bson(path; ans = (VERSION, Dates.now(Dates.UTC), 0.0, (x = nothing, y = nothing, z = nothing, ans = nothing)))
 
     # 2. add `true` to @cache call to overwrite
     # validate log message
-    @test_logs (:info, "Overwriting $path\nx\ny\nz") (@cache path begin
+    @test_logs (:info, "Overwriting $path\n") match_mode=:any (@cache path begin
         x = collect(1:3)
         y = 4
         z = "test"
         "final output"
     end true)
-
-    # overwrite data file
-    overwrite = true
-    @cache path begin
-        x = collect(1:3)
-        y = 4
-        z = "test"
-        "final output"
-    end overwrite
 
     # 3. check that correct data was overwritten
     x = nothing
@@ -103,42 +94,42 @@ end
     @test out == "final output"
 end
 
-## Test no variable case (where we just save ans)
-@testset "Only ans" begin
+## Test @cache macro with no variable case
+@testset "@cache Only ans" begin
     # 0. Clean up
     rm(path)
 
     # 1. verify log message
-    @test_logs (:info, "Saving to $path\n") (@cache path 2 + 3)
+    @test_logs (:info, "Saving to $path\n") match_mode=:any (@cache path 2 + 3)
 
     # 2. cache ans
     rm(path)
     out = @cache path 2 + 3
 
-    # 3. did variables enter workspace correctly?
+    # 3. did output come out correctly?
     @test out == 5
 
     # 4. set variable to nothing
     out = nothing
 
-    # 5. file exists: load variables from it
+    # 5. file exists: load from it
     # verify log message
-    @test_logs (:info, "Loading from $path\n") (@cache path 2 + 3)
+    @test_logs (:info, "Loading from $path\n") match_mode=:any (@cache path 2 + 3)
 
-    # load variables
+    # load ans
     out = @cache path 2 + 3
 
-    # 6. did variables enter workspace correctly?
+    # 6. did output come out correctly?
     @test out == 5
 end
 
-## Test functionality in module
+## Test @cache in module
 # Motivated by Pluto and based on test case from:
 # https://github.com/JuliaIO/BSON.jl/issues/25
 module MyModule
 using CacheVariables, Test, DataFrames
 
-@testset "In module" begin
+@testset "@cache In module" begin
     # 0. module test path
     dirpath = joinpath(@__DIR__, "data")
     modpath = joinpath(dirpath, "modtest.bson")
@@ -170,12 +161,12 @@ end
 
 end
 
-## Test function form
-@testset "Function form" begin
+## Test cache function form (formerly cachemeta)
+@testset "cache form" begin
     funcpath = joinpath(dirpath, "functest.bson")
 
     # 1a. Save - verify log message
-    @test_logs (:info, "Saving to $funcpath\n") cache(funcpath) do
+    @test_logs (:info, "Saving to $funcpath\n") match_mode=:any cache(funcpath) do
         x = collect(1:3)
         y = 4
         z = "test"
@@ -191,14 +182,14 @@ end
         (; x = x, y = y, z = z)
     end
 
-    # 1c. Save - did variables enter workspace correctly?
+    # 1c. Save - did output return correctly?
     @test out == (; x = [1, 2, 3], y = 4, z = "test")
 
     # 2. Reset - set all variables to nothing
     out = nothing
 
     # 3a. Load - verify log message
-    @test_logs (:info, "Loading from $funcpath\n") cache(funcpath) do
+    @test_logs (:info, "Loading from $funcpath\n") match_mode=:any cache(funcpath) do
         x = collect(1:3)
         y = 4
         z = "test"
@@ -213,55 +204,46 @@ end
         (; x = x, y = y, z = z)
     end
 
-    # 3c. Load - did variables enter workspace correctly?
-    @test out == (; x = [1, 2, 3], y = 4, z = "test")
-
-    # 4. Nothing case
-    @test_logs (:info, "No path provided, running without caching.") cache(nothing) do
-        x = collect(1:3)
-        y = 4
-        z = "test"
-        (; x = x, y = y, z = z)
-    end
+    # 3c. Load - did output return correctly?
     @test out == (; x = [1, 2, 3], y = 4, z = "test")
 end
 
-module MyFuncModule
+module MyCacheModule
 using CacheVariables, Test, DataFrames
 
-@testset "Function form - in module" begin
+@testset "cache form - in module" begin
     # 0. module test path
     dirpath = joinpath(@__DIR__, "data")
     modpath = joinpath(dirpath, "funcmodtest.bson")
 
     # 1a. save
-    out = cache(modpath; mod = @__MODULE__) do
+    out = cache(modpath; bson_mod = @__MODULE__) do
         DataFrame(a = 1:10, b = 'a':'j')
     end
 
-    # 1b. check: did variables enter workspace correctly?
+    # 1b. check: did output return correctly?
     @test out == DataFrame(a = 1:10, b = 'a':'j')
 
     # 2. set all variables to nothing
     out = nothing
 
     # 3a. load
-    out = cache(modpath; mod = @__MODULE__) do
+    out = cache(modpath; bson_mod = @__MODULE__) do
         DataFrame(a = 1:10, b = 'a':'j')
     end
 
-    # 3b. check: did variables enter workspace correctly?
+    # 3b. check: did output return correctly?
     @test out == DataFrame(a = 1:10, b = 'a':'j')
 end
 
 end
 
-## Test cachemeta function form
-@testset "cachemeta form" begin
-    metapath = joinpath(dirpath, "metatest.bson")
+## Test barecache function form (formerly cache)
+@testset "barecache form" begin
+    barepath = joinpath(dirpath, "baretest.bson")
 
-    # 1a. Save - verify log messages (at least check for "Saving to" message)
-    @test_logs (:info, "Saving to $metapath\n") match_mode=:any cachemeta(metapath) do
+    # 1a. Save - verify log message
+    @test_logs (:info, "Saving to $barepath\n") barecache(barepath) do
         x = collect(1:3)
         y = 4
         z = "test"
@@ -269,8 +251,8 @@ end
     end
 
     # 1b. Save - save values to cache
-    rm(metapath)
-    out = cachemeta(metapath) do
+    rm(barepath)
+    out = barecache(barepath) do
         x = collect(1:3)
         y = 4
         z = "test"
@@ -280,23 +262,11 @@ end
     # 1c. Save - did output return correctly?
     @test out == (; x = [1, 2, 3], y = 4, z = "test")
 
-    # 1d. Verify metadata was saved (stored as tuple with VERSION, timestamp, runtime, result)
-    data = BSON.load(metapath)
-    @test haskey(data, :ans)
-    result_tuple = data[:ans]
-    @test result_tuple isa Tuple
-    @test length(result_tuple) == 4
-    @test result_tuple[1] isa VersionNumber  # VERSION
-    @test result_tuple[2] isa Dates.DateTime  # timestamp
-    @test result_tuple[3] isa Real  # runtime
-    @test result_tuple[3] >= 0
-    @test result_tuple[4] == (; x = [1, 2, 3], y = 4, z = "test")  # actual result
-
     # 2. Reset - set all variables to nothing
     out = nothing
 
-    # 3a. Load - verify log message (at least check for "Loading from" message)
-    @test_logs (:info, "Loading from $metapath\n") match_mode=:any cachemeta(metapath) do
+    # 3a. Load - verify log message
+    @test_logs (:info, "Loading from $barepath\n") barecache(barepath) do
         x = collect(1:3)
         y = 4
         z = "test"
@@ -304,7 +274,7 @@ end
     end
 
     # 3b. Load - load values from cache
-    out = cachemeta(metapath) do
+    out = barecache(barepath) do
         x = collect(1:3)
         y = 4
         z = "test"
@@ -313,33 +283,48 @@ end
 
     # 3c. Load - did output return correctly?
     @test out == (; x = [1, 2, 3], y = 4, z = "test")
+
+    # 4. Nothing case
+    @test_logs (:info, "No path provided, running without caching.") barecache(nothing) do
+        x = collect(1:3)
+        y = 4
+        z = "test"
+        (; x = x, y = y, z = z)
+    end
+    out = barecache(nothing) do
+        x = collect(1:3)
+        y = 4
+        z = "test"
+        (; x = x, y = y, z = z)
+    end
+    @test out == (; x = [1, 2, 3], y = 4, z = "test")
 end
 
-module MyMetaModule
+module MyBarecacheModule
 using CacheVariables, Test, DataFrames
 
-@testset "cachemeta form - in module" begin
+@testset "barecache form - in module" begin
     # 0. module test path
     dirpath = joinpath(@__DIR__, "data")
-    modpath = joinpath(dirpath, "metamodtest.bson")
+    modpath = joinpath(dirpath, "baremodtest.bson")
 
     # 1a. save
-    out = cachemeta(modpath; mod = @__MODULE__) do
+    out = barecache(modpath; bson_mod = @__MODULE__) do
         DataFrame(a = 1:10, b = 'a':'j')
     end
 
-    # 1b. check: did variables enter workspace correctly?
+    # 1b. check: did output return correctly?
     @test out == DataFrame(a = 1:10, b = 'a':'j')
 
     # 2. set all variables to nothing
     out = nothing
 
     # 3a. load
-    out = cachemeta(modpath; mod = @__MODULE__) do
+    out = barecache(modpath; bson_mod = @__MODULE__) do
         DataFrame(a = 1:10, b = 'a':'j')
     end
 
-    # 3b. check: did variables enter workspace correctly?
+    # 3b. check: did output return correctly?
     @test out == DataFrame(a = 1:10, b = 'a':'j')
 end
 

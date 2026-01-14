@@ -64,7 +64,7 @@ function _cache_block(path, ex::Expr, overwrite, mod)
     vars = _cachevars(ex)
     
     # Build the named tuple constructor for the variables
-    varkws = [:($(var) = $(var)) for var in vars]
+    varkws = [Expr(:kw, var, esc(var)) for var in vars]
     
     # Build the named tuple for destructuring
     if isempty(vars)
@@ -75,12 +75,15 @@ function _cache_block(path, ex::Expr, overwrite, mod)
             end
         end
     else
-        # Build destructuring assignment
-        vartuple = Expr(:tuple, [Expr(:kw, var, var) for var in vars]...)
+        # Build destructuring - extract each variable individually from the named tuple
+        var_assignments = [:($(esc(var)) = _result.$(var)) for var in vars]
         
         return quote
-            let _result = cache($(esc(path)); overwrite = $(esc(overwrite))) do
-                    _ans = $(esc(ex))
+            begin
+                _result = cache($(esc(path)); overwrite = $(esc(overwrite))) do
+                    _ans = begin
+                        $(esc(ex))
+                    end
                     return (; $(varkws...), ans = _ans)
                 end
                 # Check that all variables exist in the cache
@@ -89,8 +92,9 @@ function _cache_block(path, ex::Expr, overwrite, mod)
                 if !isempty(_missing)
                     error("Variables not found in cache file $($(esc(path))): ", join(_missing, ", "))
                 end
-                # Destructure the result
-                $(esc(vartuple)) = _result
+                # Extract each variable from the result and assign to parent scope
+                $(var_assignments...)
+                # Return the final value
                 _result.ans
             end
         end
