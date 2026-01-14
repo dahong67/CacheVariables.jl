@@ -3,14 +3,21 @@ module CacheVariables
 using BSON
 import Dates
 import Logging: @info
-using MacroTools: @capture
 
 export @cache, cache
 
-"""
-    @cache path let ... end
+function _cachevars(ex::Expr)
+    (ex.head === :(=)) && return Symbol[ex.args[1]]
+    (ex.head === :block) && return collect(Iterators.flatten([
+        _cachevars(exi) for exi in ex.args if isa(exi, Expr)
+    ]))
+    return Vector{Symbol}(undef, 0)
+end
 
-Cache the variables defined in a `let...end` block along with the final output.
+"""
+    @cache path begin ... end
+
+Cache the variables defined in a `begin...end` block along with the final output.
 Metadata tracking (Julia version, timestamp, runtime) is included automatically.
 
 Variables assigned in the block are cached along with the final output value.
@@ -18,81 +25,60 @@ Load if the file exists; run and save if it does not.
 
 # Examples
 ```julia-repl
-julia> @cache "test.bson" let
+julia> @cache "test.bson" begin
          a = "a very time-consuming quantity to compute"
          b = "a very long simulation to run"
          100
        end
-[ Info: Saving to test.bson
-[ Info: Run was started at 2024-01-01T00:00:00.000 and took 0.123 seconds.
+[ Info: Saving cached values to test.bson.
+  Run Timestamp : 2024-01-01T00:00:00.000 UTC (run took 0.123 sec)
+  Julia Version : 1.10.0
 100
 
-julia> @cache "test.bson" let
+julia> @cache "test.bson" begin
          a = "a very time-consuming quantity to compute"
          b = "a very long simulation to run"
          100
        end
-[ Info: Loading from test.bson
-[ Info: Run was started at 2024-01-01T00:00:00.000 and took 0.123 seconds.
+[ Info: Loaded cached values from test.bson.
+  Run Timestamp : 2024-01-01T00:00:00.000 UTC (run took 0.123 sec)
+  Julia Version : 1.10.0
 100
 ```
 """
-macro cache(path, expr, kwexprs...)
-    # Dispatch to correct method
-    if expr.head === :let
-        _cache_let_block(path, expr, kwexprs...)
+macro cache(path, ex::Expr, overwrite = false, bson_mod = :(@__MODULE__))
+    # Check for supported patterns
+    if ex.head === :block
+        # Handle begin...end block case
+        return _cache_block(path, ex, overwrite, bson_mod)
+    elseif ex.head === :call && length(ex.args) >= 2 && ex.args[1] === :map
+        # Map support left for future PRs
+        error("@cache does not yet support map expressions. Use the `cache` function directly for now.")
+    elseif ex.head === :comprehension || ex.head === :generator
+        # Comprehension support left for future PRs
+        error("@cache does not yet support comprehensions. Use the `cache` function directly for now.")
     else
-        throw(ArgumentError("@cache currently only supports `let ... end` blocks."))
+        error("@cache only supports begin...end blocks. Got: $(ex.head)")
     end
 end
 
-function _cache_let_block(path, body, kwexprs...)
-    # Process keyword arguments
-    kwdict = Dict(:overwrite => false, :bson_mod => :(@__MODULE__))
-    for expr in kwexprs
-        if @capture(expr, lhs_ = rhs_) && haskey(kwdict, lhs)
-            kwdict[lhs] = rhs
-        else
-            throw(ArgumentError("Unsupported optional argument: $expr"))
-        end
-    end
-
-    # Process body and extract variable names
-    body_cap = @capture body let
-        lines__
-    end
-    body_cap || throw(ArgumentError("`let ... end` block not found"))
-    varnames = Symbol[]
-    for line in lines
-        if @capture(line, lhs_Symbol = rhs_)
-            push!(varnames, lhs)
-        elseif @capture(line, (; lhs__,) = rhs_)
-            append!(varnames, lhs)
-        elseif @capture(line, (lhs__,) = rhs_)
-            append!(varnames, lhs)
-        end
-    end
-    unique!(varnames)
-
-    # Create @info string
-    varinfostring = "@cache identified the variables: $(join(varnames, ", "))"
-
-    # Create cache block
+function _cache_block(path, ex::Expr, overwrite, bson_mod)
+    vars = _cachevars(ex)
+    
+    # Build the named tuple constructor for the variables
+    varkws = [Expr(:kw, var, esc(var)) for var in vars]
+    
     return quote
-        # Info string
-        @info $varinfostring
-
-        # Run expression and cache identified variables
-        result = cache($(esc(path)); overwrite=$(esc(kwdict[:overwrite])), bson_mod=$(esc(kwdict[:bson_mod]))) do
-            ans = $(esc(body))
-            return (; vars=(; $(esc.(varnames)...)), ans)
+        begin
+            result = cache($(esc(path)); bson_mod = $(esc(bson_mod)), overwrite = $(esc(overwrite))) do
+                ans = $(esc(ex))
+                return (; vars = (; $(varkws...)), ans = ans)
+            end
+            # Extract variables
+            (; $(esc.(vars)...),) = result.vars
+            # Return the final value
+            result.ans
         end
-
-        # Assign identified variables
-        (; $(esc.(varnames)...)) = result.vars
-
-        # Final output
-        result.ans
     end
 end
 
@@ -143,7 +129,6 @@ julia> cache(nothing) do
 ```
 """
 function cache(@nospecialize(f), path; bson_mod=@__MODULE__, overwrite=false)
-    @show bson_mod
     if isnothing(path)
         @info "No cachefile provided - running without caching."
         return f()

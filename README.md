@@ -35,8 +35,9 @@ julia> cache("test.bson") do
          b = "a very long simulation to run"
          return (; a = a, b = b)
        end
-[ Info: Saving to test.bson
-[ Info: Run was started at 2024-01-01T00:00:00.000 and took 0.123 seconds.
+[ Info: Saving cached values to test.bson.
+  Run Timestamp : 2024-01-01T00:00:00.000 UTC (run took 0.123 sec)
+  Julia Version : 1.10.0
 (a = "a very time-consuming quantity to compute", b = "a very long simulation to run")
 
 julia> cache("test.bson") do
@@ -44,8 +45,9 @@ julia> cache("test.bson") do
          b = "a very long simulation to run"
          return (; a = a, b = b)
        end
-[ Info: Loading from test.bson
-[ Info: Run was started at 2024-01-01T00:00:00.000 and took 0.123 seconds.
+[ Info: Loaded cached values from test.bson.
+  Run Timestamp : 2024-01-01T00:00:00.000 UTC (run took 0.123 sec)
+  Julia Version : 1.10.0
 (a = "a very time-consuming quantity to compute", b = "a very long simulation to run")
 ```
 
@@ -56,7 +58,7 @@ julia> cache(nothing) do
          b = "a very long simulation to run"
          return (; a = a, b = b)
        end
-[ Info: No path provided, running without caching.
+[ Info: No cachefile provided - running without caching.
 (a = "a very time-consuming quantity to compute", b = "a very long simulation to run")
 ```
 This can be useful for conditionally saving a cache (see [Using pattern 3 on a cluster](#using-pattern-3-on-a-cluster) below).
@@ -90,8 +92,9 @@ julia> @cache "test.bson" begin
          b = "a very long simulation to run"
          100
        end
-[ Info: Saving to test.bson
-[ Info: Run was started at 2024-01-01T00:00:00.000 and took 0.123 seconds.
+[ Info: Saving cached values to test.bson.
+  Run Timestamp : 2024-01-01T00:00:00.000 UTC (run took 0.123 sec)
+  Julia Version : 1.10.0
 100
 
 julia> @cache "test.bson" begin
@@ -99,12 +102,13 @@ julia> @cache "test.bson" begin
          b = "a very long simulation to run"
          100
        end
-[ Info: Loading from test.bson
-[ Info: Run was started at 2024-01-01T00:00:00.000 and took 0.123 seconds.
+[ Info: Loaded cached values from test.bson.
+  Run Timestamp : 2024-01-01T00:00:00.000 UTC (run took 0.123 sec)
+  Julia Version : 1.10.0
 100
 ```
 
-An optional `overwrite` flag (default is false) at the end
+An optional `overwrite` keyword argument (default is false)
 tells the macro to always save,
 even when a file with the given name already exists.
 
@@ -114,8 +118,9 @@ julia> @cache "test.bson" begin
          b = "a very long simulation to run"
          100
        end false
-[ Info: Loading from test.bson
-[ Info: Run was started at 2024-01-01T00:00:00.000 and took 0.123 seconds.
+[ Info: Loaded cached values from test.bson.
+  Run Timestamp : 2024-01-01T00:00:00.000 UTC (run took 0.123 sec)
+  Julia Version : 1.10.0
 100
 
 julia> @cache "test.bson" begin
@@ -123,8 +128,9 @@ julia> @cache "test.bson" begin
          b = "a very long simulation to run"
          100
        end true
-[ Info: Overwriting test.bson
-[ Info: Run was started at 2024-01-01T00:00:00.000 and took 0.123 seconds.
+[ Info: Overwriting test.bson with cached values.
+  Run Timestamp : 2024-01-01T00:00:00.000 UTC (run took 0.123 sec)
+  Julia Version : 1.10.0
 100
 ```
 
@@ -145,7 +151,7 @@ julia> cache("test.bson") do
                return result
            end
        end
-[ Info: Saving to test.bson
+[ Info: Saving cached values to test.bson.
 3-element Vector{String}:
  "time-consuming result of run 1"
  "time-consuming result of run 2"
@@ -157,7 +163,7 @@ julia> cache("test.bson") do
                return result
            end
        end
-[ Info: Loading from test.bson
+[ Info: Loaded cached values from test.bson.
 3-element Vector{Any}:
  "time-consuming result of run 1"
  "time-consuming result of run 2"
@@ -179,9 +185,9 @@ julia> map(1:3) do run
                return result
            end
        end
-[ Info: Saving to cache/run-1.bson
-[ Info: Saving to cache/run-2.bson
-[ Info: Saving to cache/run-3.bson
+[ Info: Saving cached values to cache/run-1.bson.
+[ Info: Saving cached values to cache/run-2.bson.
+[ Info: Saving cached values to cache/run-3.bson.
 3-element Vector{String}:
  "time-consuming result of run 1"
  "time-consuming result of run 2"
@@ -193,9 +199,9 @@ julia> map(1:3) do run
                return result
            end
        end
-[ Info: Loading from cache/run-1.bson
-[ Info: Loading from cache/run-2.bson
-[ Info: Loading from cache/run-3.bson
+[ Info: Loaded cached values from cache/run-1.bson.
+[ Info: Loaded cached values from cache/run-2.bson.
+[ Info: Loaded cached values from cache/run-3.bson.
 3-element Vector{String}:
  "time-consuming result of run 1"
  "time-consuming result of run 2"

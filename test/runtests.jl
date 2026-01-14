@@ -8,7 +8,7 @@ path = joinpath(dirpath, "test.bson")
 ## Test @cache macro with save functionality
 @testset "@cache Save" begin
     # 1. verify log messages (Saving and metadata)
-    @test_logs (:info, r"Saving to") match_mode=:any (@cache path begin
+    @test_logs (:info, r"Saving cached values") match_mode=:any (@cache path begin
         x = collect(1:3)
         y = 4
         z = "test"
@@ -40,7 +40,7 @@ end
 
     # 2. file exists: load variables from it
     # verify log message
-    @test_logs (:info, r"Loading from") match_mode=:any (@cache path begin
+    @test_logs (:info, r"Loaded cached values") match_mode=:any (@cache path begin
         x = collect(1:3)
         y = 4
         z = "test"
@@ -101,7 +101,7 @@ end
     rm(path)
 
     # 1. verify log message
-    @test_logs (:info, r"Saving to") match_mode=:any (@cache path begin 2 + 3 end)
+    @test_logs (:info, r"Saving cached values") match_mode=:any (@cache path begin 2 + 3 end)
 
     # 2. cache ans
     rm(path)
@@ -115,7 +115,7 @@ end
 
     # 5. file exists: load from it
     # verify log message
-    @test_logs (:info, r"Loading from") match_mode=:any (@cache path begin 2 + 3 end)
+    @test_logs (:info, r"Loaded cached values") match_mode=:any (@cache path begin 2 + 3 end)
 
     # load ans
     out = @cache path begin 2 + 3 end
@@ -167,7 +167,7 @@ end
     funcpath = joinpath(dirpath, "functest.bson")
 
     # 1a. Save - verify log message
-    @test_logs (:info, r"Saving to") match_mode=:any cache(funcpath) do
+    @test_logs (:info, r"Saving cached values") match_mode=:any cache(funcpath) do
         x = collect(1:3)
         y = 4
         z = "test"
@@ -190,7 +190,7 @@ end
     out = nothing
 
     # 3a. Load - verify log message
-    @test_logs (:info, r"Loading from") match_mode=:any cache(funcpath) do
+    @test_logs (:info, r"Loaded cached values") match_mode=:any cache(funcpath) do
         x = collect(1:3)
         y = 4
         z = "test"
@@ -241,7 +241,7 @@ end
 
 ## Test cache function with nothing path
 @testset "cache with nothing" begin
-    @test_logs (:info, "No path provided, running without caching.") cache(nothing) do
+    @test_logs (:info, "No cachefile provided - running without caching.") cache(nothing) do
         x = collect(1:3)
         y = 4
         z = "test"
