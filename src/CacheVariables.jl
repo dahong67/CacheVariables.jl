@@ -4,7 +4,7 @@ using BSON
 import Dates
 import Logging: @info
 
-export @cache, cache, cachemeta
+export @cache, cache, barecache
 
 function _cachevars(ex::Expr)
     (ex.head === :(=)) && return Symbol[ex.args[1]]
@@ -17,14 +17,16 @@ end
 """
     @cache path code [overwrite]
 
-Cache results from running `code` using BSON file at `path`.
+Transform code to use the `cache` function interface with automatic variable handling.
+
+For `begin...end` blocks, the macro:
+- Identifies variables assigned in the block
+- Transforms the block to return a named tuple with those variables
+- Wraps it in a `cache` call
+- Destructures the result back into the original variables
+
 Load if the file exists; run and save if it does not.
 Run and save either way if `overwrite` is true (default is false).
-
-Tip: Use `begin...end` for `code` to cache blocks of code.
-
-Caveat: The variable name `ans` is used for storing the final output,
-so it is best to avoid using it as a variable name in `code`.
 
 # Examples
 ```julia-repl
@@ -33,9 +35,8 @@ julia> @cache "test.bson" begin
          b = "a very long simulation to run"
          100
        end
-┌ Info: Saving to test.bson
-│ a
-└ b
+[ Info: Saving to test.bson
+[ Info: Run was started at 2024-01-01T00:00:00.000 and took 0.123 seconds.
 100
 
 julia> @cache "test.bson" begin
@@ -43,58 +44,100 @@ julia> @cache "test.bson" begin
          b = "a very long simulation to run"
          100
        end
-┌ Info: Loading from test.bson
-│ a
-└ b
-100
-
-julia> @cache "test.bson" begin
-         a = "a very time-consuming quantity to compute"
-         b = "a very long simulation to run"
-         100
-       end true
-┌ Info: Overwriting test.bson
-│ a
-└ b
+[ Info: Loading from test.bson
+[ Info: Run was started at 2024-01-01T00:00:00.000 and took 0.123 seconds.
 100
 ```
 """
 macro cache(path, ex::Expr, overwrite = false)
-    vars = _cachevars(ex)
-    vardesc = join(string.(vars), "\n")
-    varkws = [:($(var) = $(var)) for var in vars]
-    varlist = :($(varkws...),)
-    vartuple = :($(vars...),)
+    # Check if this is a map expression
+    if ex.head === :call && length(ex.args) >= 2 && ex.args[1] === :map
+        # Handle map case: @cache "path" map(iter) do i ... end
+        return _cache_map(path, ex, overwrite, __module__)
+    else
+        # Handle begin...end block case
+        return _cache_block(path, ex, overwrite, __module__)
+    end
+end
 
-    return quote
-        if !ispath($(esc(path))) || $(esc(overwrite))
-            _ans = $(esc(ex))
-            _msg = ispath($(esc(path))) ? "Overwriting " : "Saving to "
-            @info(string(_msg, $(esc(path)), "\n", $(vardesc)))
-            mkpath(splitdir($(esc(path)))[1])
-            bson($(esc(path)); $(esc(varlist))..., ans = _ans)
-            _ans
-        else
-            @info(string("Loading from ", $(esc(path)), "\n", $(vardesc)))
-            data = BSON.load($(esc(path)), @__MODULE__)
-            $(esc(vartuple)) = getindex.(Ref(data), $vars)
-            data[:ans]
+function _cache_block(path, ex::Expr, overwrite, mod)
+    vars = _cachevars(ex)
+    
+    # Build the named tuple constructor for the variables
+    varkws = [:($(var) = $(var)) for var in vars]
+    
+    # Build the named tuple for destructuring
+    if isempty(vars)
+        # If no variables, just return ans
+        return quote
+            cache($(esc(path)); overwrite = $(esc(overwrite))) do
+                $(esc(ex))
+            end
+        end
+    else
+        # Build destructuring assignment
+        vartuple = Expr(:tuple, [Expr(:kw, var, var) for var in vars]...)
+        
+        return quote
+            let _result = cache($(esc(path)); overwrite = $(esc(overwrite))) do
+                    _ans = $(esc(ex))
+                    return (; $(varkws...), ans = _ans)
+                end
+                # Check that all variables exist in the cache
+                _missing = Symbol[]
+                $([:(_result isa NamedTuple && !haskey(_result, $(QuoteNode(var))) && push!(_missing, $(QuoteNode(var)))) for var in vars]...)
+                if !isempty(_missing)
+                    error("Variables not found in cache file $($(esc(path))): ", join(_missing, ", "))
+                end
+                # Destructure the result
+                $(esc(vartuple)) = _result
+                _result.ans
+            end
         end
     end
 end
 
+function _cache_map(path, ex::Expr, overwrite, mod)
+    # Extract the map components
+    # ex.args[1] is :map
+    # ex.args[2] is either the do-block function or the iterable
+    # Pattern: map(iter) do i ... end
+    
+    if length(ex.args) == 3 && Meta.isexpr(ex.args[3], :do)
+        # map(iter) do i ... end
+        iter_expr = ex.args[2]
+        do_block = ex.args[3]
+        # do_block.args[1] is the parameters (e.g., Expr(:tuple, :i))
+        # do_block.args[2] is the body
+        
+        params = do_block.args[1]
+        body = do_block.args[2]
+        
+        return quote
+            map(enumerate($(esc(iter_expr)))) do (ind, $(esc(params)))
+                cache(joinpath($(esc(path)), string(ind)); overwrite = $(esc(overwrite))) do
+                    $(esc(body))
+                end
+            end
+        end
+    else
+        error("@cache with map requires the pattern: @cache \"path\" map(iter) do i ... end")
+    end
+end
+
 """
-    cache(f, path; mod = @__MODULE__)
+    barecache(f, path; bson_mod = @__MODULE__, overwrite = false)
 
 Cache output from running `f()` using BSON file at `path`.
 Load if the file exists; run and save if it does not.
-Use `mod` keyword argument to specify module.
+Use `bson_mod` keyword argument to specify module.
+Run and save either way if `overwrite` is true (default is false).
 
 Tip: Use `do...end` to cache output from a block of code.
 
 # Examples
 ```julia-repl
-julia> cache("test.bson") do
+julia> barecache("test.bson") do
          a = "a very time-consuming quantity to compute"
          b = "a very long simulation to run"
          return (; a = a, b = b)
@@ -102,7 +145,7 @@ julia> cache("test.bson") do
 [ Info: Saving to test.bson
 (a = "a very time-consuming quantity to compute", b = "a very long simulation to run")
 
-julia> cache("test.bson") do
+julia> barecache("test.bson") do
          a = "a very time-consuming quantity to compute"
          b = "a very long simulation to run"
          return (; a = a, b = b)
@@ -111,30 +154,32 @@ julia> cache("test.bson") do
 (a = "a very time-consuming quantity to compute", b = "a very long simulation to run")
 ```
 """
-function cache(@nospecialize(f), path; mod = @__MODULE__)
-    if !ispath(path)
+function barecache(@nospecialize(f), path; bson_mod = @__MODULE__, overwrite = false)
+    if !ispath(path) || overwrite
         ans = f()
-        @info(string("Saving to ", path, "\n"))
+        _msg = ispath(path) ? "Overwriting " : "Saving to "
+        @info(string(_msg, path, "\n"))
         mkpath(splitdir(path)[1])
         bson(path; ans = ans)
         return ans
     else
         @info(string("Loading from ", path, "\n"))
-        data = BSON.load(path, mod)
+        data = BSON.load(path, bson_mod)
         return data[:ans]
     end
 end
-function cache(@nospecialize(f), ::Nothing; mod = @__MODULE__)
+function barecache(@nospecialize(f), ::Nothing; bson_mod = @__MODULE__, overwrite = false)
     @info("No path provided, running without caching.")
     return f()
 end
 
 """
-    cachemeta(f, path; mod = @__MODULE__)
+    cache(f, path; bson_mod = @__MODULE__, overwrite = false)
 
 Cache output from running `f()` using BSON file at `path` with additional metadata.
 Load if the file exists; run and save if it does not.
-Use `mod` keyword argument to specify module.
+Use `bson_mod` keyword argument to specify module.
+Run and save either way if `overwrite` is true (default is false).
 
 Saves and displays the following metadata:
 - Julia version (from `VERSION`)
@@ -145,7 +190,7 @@ Tip: Use `do...end` to cache output from a block of code.
 
 # Examples
 ```julia-repl
-julia> cachemeta("test.bson") do
+julia> cache("test.bson") do
          a = "a very time-consuming quantity to compute"
          b = "a very long simulation to run"
          return (; a = a, b = b)
@@ -154,7 +199,7 @@ julia> cachemeta("test.bson") do
 [ Info: Run was started at 2024-01-01T00:00:00.000 and took 0.123 seconds.
 (a = "a very time-consuming quantity to compute", b = "a very long simulation to run")
 
-julia> cachemeta("test.bson") do
+julia> cache("test.bson") do
          a = "a very time-consuming quantity to compute"
          b = "a very long simulation to run"
          return (; a = a, b = b)
@@ -164,8 +209,8 @@ julia> cachemeta("test.bson") do
 (a = "a very time-consuming quantity to compute", b = "a very long simulation to run")
 ```
 """
-function cachemeta(@nospecialize(f), path; mod = @__MODULE__)
-    version, whenrun, runtime, ans = cache(path; mod = mod) do
+function cache(@nospecialize(f), path; bson_mod = @__MODULE__, overwrite = false)
+    version, whenrun, runtime, ans = barecache(path; bson_mod = bson_mod, overwrite = overwrite) do
         version = VERSION
         whenrun = Dates.now(Dates.UTC)
         runtime = @elapsed ans = f()
