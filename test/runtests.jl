@@ -1,5 +1,10 @@
 using CacheVariables, BSON, Dates, Test
 
+## Helper function to create cache metadata tuple
+function create_cache_metadata(result)
+    return (VERSION, Dates.now(Dates.UTC), 0.0, result)
+end
+
 ## Add data directory, define data file path
 dirpath = joinpath(@__DIR__, "data")
 isdir(dirpath) && error("Test directory already has a data subdirectory.")
@@ -64,8 +69,9 @@ end
 
 ## Test @cache macro with overwrite behavior
 @testset "@cache Overwrite" begin
-    # 1. change file contents to invalid data
-    bson(path; ans = (VERSION, Dates.now(Dates.UTC), 0.0, (x = nothing, y = nothing, z = nothing, ans = nothing)))
+    # 1. change file contents to invalid data - simulating corrupted cache
+    invalid_result = (x = nothing, y = nothing, z = nothing, ans = nothing)
+    bson(path; ans = create_cache_metadata(invalid_result))
 
     # 2. add `true` to @cache call to overwrite
     # validate log message

@@ -78,6 +78,9 @@ function _cache_block(path, ex::Expr, overwrite, mod)
         # Build destructuring - extract each variable individually from the named tuple
         var_assignments = [:($(esc(var)) = _result.$(var)) for var in vars]
         
+        # Build checks for each variable
+        var_checks = [:(haskey(_result, $(QuoteNode(var))) || push!(_missing, $(QuoteNode(var)))) for var in vars]
+        
         return quote
             begin
                 _result = cache($(esc(path)); overwrite = $(esc(overwrite))) do
@@ -87,10 +90,12 @@ function _cache_block(path, ex::Expr, overwrite, mod)
                     return (; $(varkws...), ans = _ans)
                 end
                 # Check that all variables exist in the cache
-                _missing = Symbol[]
-                $([:(_result isa NamedTuple && !haskey(_result, $(QuoteNode(var))) && push!(_missing, $(QuoteNode(var)))) for var in vars]...)
-                if !isempty(_missing)
-                    error("Variables not found in cache file $($(esc(path))): ", join(_missing, ", "))
+                if _result isa NamedTuple
+                    _missing = Symbol[]
+                    $(var_checks...)
+                    if !isempty(_missing)
+                        error("Variables not found in cache file $($(esc(path))): ", join(_missing, ", "))
+                    end
                 end
                 # Extract each variable from the result and assign to parent scope
                 $(var_assignments...)
@@ -103,23 +108,26 @@ end
 
 function _cache_map(path, ex::Expr, overwrite, mod)
     # Extract the map components
-    # ex.args[1] is :map
-    # ex.args[2] is either the do-block function or the iterable
     # Pattern: map(iter) do i ... end
+    # This transforms into: map(enumerate(iter)) do (iteration_index, i) 
+    #                          cache(joinpath(path, "$iteration_index")) do ... end
+    #                       end
+    # Each iteration is cached in a separate file: path/1, path/2, etc.
     
     if length(ex.args) == 3 && Meta.isexpr(ex.args[3], :do)
         # map(iter) do i ... end
         iter_expr = ex.args[2]
         do_block = ex.args[3]
-        # do_block.args[1] is the parameters (e.g., Expr(:tuple, :i))
+        # do_block.args[1] is the parameters (e.g., :i or Expr(:tuple, :i))
         # do_block.args[2] is the body
         
-        params = do_block.args[1]
+        user_params = do_block.args[1]
         body = do_block.args[2]
         
+        # Use _cache_iter_idx as the iteration index to avoid conflicts with user variables
         return quote
-            map(enumerate($(esc(iter_expr)))) do (ind, $(esc(params)))
-                cache(joinpath($(esc(path)), string(ind)); overwrite = $(esc(overwrite))) do
+            map(enumerate($(esc(iter_expr)))) do (_cache_iter_idx, $(esc(user_params)))
+                cache(joinpath($(esc(path)), string(_cache_iter_idx)); overwrite = $(esc(overwrite))) do
                     $(esc(body))
                 end
             end
