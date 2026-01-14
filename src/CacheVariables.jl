@@ -81,9 +81,10 @@ macro cache(path, ex::Expr, overwrite = false)
                 bson($(esc(path)); $(esc(varlist))..., ans = _ans)
             elseif endswith($(esc(path)), ".jld2")
                 # Use JLD2 for better type support
-                _data = Dict{String,Any}()
-                $([:(_data[$(String(var))] = $(esc(var))) for var in vars]...)
-                _data["ans"] = _ans
+                # Note: JLD2 converts Symbol keys to String keys when saving
+                _data = Dict{Symbol,Any}()
+                $([:(_data[$(QuoteNode(var))] = $(esc(var))) for var in vars]...)
+                _data[:ans] = _ans
                 JLD2.jldsave($(esc(path)); _data...)
             else
                 error("Unsupported file extension for $($(esc(path))). Only .bson and .jld2 are supported.")
@@ -100,7 +101,7 @@ macro cache(path, ex::Expr, overwrite = false)
                 _data[:ans]
             elseif endswith($(esc(path)), ".jld2")
                 _data = JLD2.load($(esc(path)))
-                # JLD2 uses String keys
+                # JLD2 saves with String keys (even when we pass Symbol keys)
                 _vars_strs = $(map(String, vars))
                 $(esc(vartuple)) = map(_vars_strs) do str
                     if haskey(_data, str)

@@ -1,4 +1,4 @@
-using CacheVariables, BSON, Dates, Test
+using CacheVariables, BSON, Dates, JLD2, Test
 
 ## Add data directory, define data file path
 dirpath = joinpath(@__DIR__, "data")
@@ -345,8 +345,8 @@ end
 
 end
 
-## Test JLD2 format
-@testset "JLD2 format" begin
+## Test JLD2 format - function form
+@testset "JLD2 format - function form" begin
     jld2path = joinpath(dirpath, "jld2test.jld2")
 
     # 1a. Save - verify log message
@@ -392,6 +392,62 @@ end
     @test out == (; x = [1, 2, 3], y = 4, z = "test")
 end
 
+## Test JLD2 format - macro form
+@testset "JLD2 format - macro form" begin
+    jld2macropath = joinpath(dirpath, "jld2macro.jld2")
+
+    # 1a. Save - verify log message
+    @test_logs (:info, "Saving to $jld2macropath\nx\ny\nz") (@cache jld2macropath begin
+        x = collect(1:3)
+        y = 4
+        z = "test"
+        "final output"
+    end)
+
+    # 1b. Save - save values to cache
+    isfile(jld2macropath) && rm(jld2macropath)
+    out = @cache jld2macropath begin
+        x = collect(1:3)
+        y = 4
+        z = "test"
+        "final output"
+    end
+
+    # 1c. Save - did variables enter workspace correctly?
+    @test x == [1, 2, 3]
+    @test y == 4
+    @test z == "test"
+    @test out == "final output"
+
+    # 2. Reset - set all variables to nothing
+    x = nothing
+    y = nothing
+    z = nothing
+    out = nothing
+
+    # 3a. Load - verify log message
+    @test_logs (:info, "Loading from $jld2macropath\nx\ny\nz") (@cache jld2macropath begin
+        x = collect(1:3)
+        y = 4
+        z = "test"
+        "final output"
+    end)
+
+    # 3b. Load - load values from cache
+    out = @cache jld2macropath begin
+        x = collect(1:3)
+        y = 4
+        z = "test"
+        "final output"
+    end
+
+    # 3c. Load - did variables enter workspace correctly?
+    @test x == [1, 2, 3]
+    @test y == 4
+    @test z == "test"
+    @test out == "final output"
+end
+
 module MyJLD2Module
 using CacheVariables, Test, DataFrames
 
@@ -420,6 +476,104 @@ using CacheVariables, Test, DataFrames
     @test out == DataFrame(a = 1:10, b = 'a':'j')
 end
 
+end
+
+## Test error handling for unsupported file extensions
+@testset "Unsupported extensions" begin
+    # Test with function form
+    badpath = joinpath(dirpath, "test.txt")
+    @test_throws ErrorException("Unsupported file extension for $badpath. Only .bson and .jld2 are supported.") cache(badpath) do
+        42
+    end
+
+    # Test with macro form
+    badpath2 = joinpath(dirpath, "test.mat")
+    @test_throws ErrorException("Unsupported file extension for $badpath2. Only .bson and .jld2 are supported.") @cache badpath2 begin
+        x = 1
+        x
+    end
+end
+
+## Test error handling for corrupted JLD2 files
+@testset "JLD2 error handling" begin
+    corruptpath = joinpath(dirpath, "corrupt.jld2")
+    
+    # Create a JLD2 file without the required "ans" key
+    JLD2.jldsave(corruptpath; other_key = 42)
+    
+    # Test that loading fails with proper error
+    @test_throws ErrorException cache(corruptpath) do
+        "this should not run"
+    end
+    
+    # Test macro form with missing key
+    corruptpath2 = joinpath(dirpath, "corrupt2.jld2")
+    JLD2.jldsave(corruptpath2; ans = "test", y = 2)  # missing x key
+    
+    @test_throws ErrorException @cache corruptpath2 begin
+        x = 1
+        y = 2
+        "result"
+    end
+end
+
+## Test cachemeta with JLD2
+@testset "cachemeta with JLD2" begin
+    jld2metapath = joinpath(dirpath, "jld2meta.jld2")
+
+    # 1a. Save - verify log messages
+    @test_logs (:info, "Saving to $jld2metapath\n") match_mode=:any cachemeta(jld2metapath) do
+        x = collect(1:3)
+        y = 4
+        z = "test"
+        (; x = x, y = y, z = z)
+    end
+
+    # 1b. Save - save values to cache
+    isfile(jld2metapath) && rm(jld2metapath)
+    out = cachemeta(jld2metapath) do
+        x = collect(1:3)
+        y = 4
+        z = "test"
+        (; x = x, y = y, z = z)
+    end
+
+    # 1c. Save - did output return correctly?
+    @test out == (; x = [1, 2, 3], y = 4, z = "test")
+
+    # 1d. Verify metadata was saved
+    data = JLD2.load(jld2metapath)
+    @test haskey(data, "ans")
+    result_tuple = data["ans"]
+    @test result_tuple isa Tuple
+    @test length(result_tuple) == 4
+    @test result_tuple[1] isa VersionNumber  # VERSION
+    @test result_tuple[2] isa Dates.DateTime  # timestamp
+    @test result_tuple[3] isa Real  # runtime
+    @test result_tuple[3] >= 0
+    @test result_tuple[4] == (; x = [1, 2, 3], y = 4, z = "test")  # actual result
+
+    # 2. Reset
+    out = nothing
+
+    # 3a. Load - verify log messages
+    @test_logs (:info, "Loading from $jld2metapath\n") match_mode=:any cachemeta(jld2metapath) do
+        x = collect(1:3)
+        y = 4
+        z = "test"
+        (; x = x, y = y, z = z)
+    end
+
+    # 3b. Load - load values from cache
+    out = cachemeta(jld2metapath) do
+        x = collect(1:3)
+        y = 4
+        z = "test"
+        (; x = x, y = y, z = z)
+    end
+
+    # 3c. Load - did output return correctly?
+    @test out == (; x = [1, 2, 3], y = 4, z = "test")
 end
 
 ## Clean up
