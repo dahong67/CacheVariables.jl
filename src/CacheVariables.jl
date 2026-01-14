@@ -8,9 +8,9 @@ using MacroTools: @capture
 export @cache, cache
 
 """
-    @cache path begin ... end
+    @cache path let ... end
 
-Cache the variables defined in a `begin...end` block along with the final output.
+Cache the variables defined in a `let...end` block along with the final output.
 Metadata tracking (Julia version, timestamp, runtime) is included automatically.
 
 Variables assigned in the block are cached along with the final output value.
@@ -18,7 +18,7 @@ Load if the file exists; run and save if it does not.
 
 # Examples
 ```julia-repl
-julia> @cache "test.bson" begin
+julia> @cache "test.bson" let
          a = "a very time-consuming quantity to compute"
          b = "a very long simulation to run"
          100
@@ -27,7 +27,7 @@ julia> @cache "test.bson" begin
 [ Info: Run was started at 2024-01-01T00:00:00.000 and took 0.123 seconds.
 100
 
-julia> @cache "test.bson" begin
+julia> @cache "test.bson" let
          a = "a very time-consuming quantity to compute"
          b = "a very long simulation to run"
          100
@@ -39,14 +39,14 @@ julia> @cache "test.bson" begin
 """
 macro cache(path, expr, kwexprs...)
     # Dispatch to correct method
-    if expr.head === :block
-        _cache_block(path, expr, kwexprs...)
+    if expr.head === :let
+        _cache_let_block(path, expr, kwexprs...)
     else
-        throw(ArgumentError("@cache currently only supports `begin ... end` blocks."))
+        throw(ArgumentError("@cache currently only supports `let ... end` blocks."))
     end
 end
 
-function _cache_block(path, body, kwexprs...)
+function _cache_let_block(path, body, kwexprs...)
     # Process keyword arguments
     kwdict = Dict(:overwrite => false, :bson_mod => :(@__MODULE__))
     for expr in kwexprs
@@ -58,9 +58,10 @@ function _cache_block(path, body, kwexprs...)
     end
 
     # Process body and extract variable names
-    @capture(body, begin
+    body_cap = @capture body let
         lines__
-    end) || throw(ArgumentError("`begin ... end` block not found"))
+    end
+    body_cap || throw(ArgumentError("`let ... end` block not found"))
     varnames = Symbol[]
     for line in lines
         if @capture(line, lhs_Symbol = rhs_)
