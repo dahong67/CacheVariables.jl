@@ -9,9 +9,8 @@ jobs:
     strategy:
       matrix:
         version:
-          - '1.0'
-          - '1.3'
-          - 'nightly'
+          - '1.10'    # minimum supported version
+          - '1'       # latest stable 1.x version
         os:
           - ubuntu-latest
           - macOS-latest
