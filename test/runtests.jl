@@ -1,10 +1,5 @@
 using CacheVariables, BSON, Dates, Test
 
-## Helper function to create cache metadata tuple
-function create_cache_metadata(result)
-    return (VERSION, Dates.now(Dates.UTC), 0.0, result)
-end
-
 ## Add data directory, define data file path
 dirpath = joinpath(@__DIR__, "data")
 isdir(dirpath) && error("Test directory already has a data subdirectory.")
@@ -70,8 +65,8 @@ end
 ## Test @cache macro with overwrite behavior
 @testset "@cache Overwrite" begin
     # 1. change file contents to invalid data - simulating corrupted cache
-    invalid_result = (x = nothing, y = nothing, z = nothing, ans = nothing)
-    bson(path; ans = create_cache_metadata(invalid_result))
+    bson(path; version = VERSION, whenrun = Dates.now(Dates.UTC), runtime = 0.0, 
+         val = (vars = (x = nothing, y = nothing, z = nothing), ans = nothing))
 
     # 2. add `true` to @cache call to overwrite
     # validate log message
@@ -244,96 +239,21 @@ end
 
 end
 
-## Test barecache function form (formerly cache)
-@testset "barecache form" begin
-    barepath = joinpath(dirpath, "baretest.bson")
-
-    # 1a. Save - verify log message
-    @test_logs (:info, "Saving to $barepath\n") barecache(barepath) do
+## Test cache function with nothing path
+@testset "cache with nothing" begin
+    @test_logs (:info, "No path provided, running without caching.") cache(nothing) do
         x = collect(1:3)
         y = 4
         z = "test"
         (; x = x, y = y, z = z)
     end
-
-    # 1b. Save - save values to cache
-    rm(barepath)
-    out = barecache(barepath) do
-        x = collect(1:3)
-        y = 4
-        z = "test"
-        (; x = x, y = y, z = z)
-    end
-
-    # 1c. Save - did output return correctly?
-    @test out == (; x = [1, 2, 3], y = 4, z = "test")
-
-    # 2. Reset - set all variables to nothing
-    out = nothing
-
-    # 3a. Load - verify log message
-    @test_logs (:info, "Loading from $barepath\n") barecache(barepath) do
-        x = collect(1:3)
-        y = 4
-        z = "test"
-        (; x = x, y = y, z = z)
-    end
-
-    # 3b. Load - load values from cache
-    out = barecache(barepath) do
-        x = collect(1:3)
-        y = 4
-        z = "test"
-        (; x = x, y = y, z = z)
-    end
-
-    # 3c. Load - did output return correctly?
-    @test out == (; x = [1, 2, 3], y = 4, z = "test")
-
-    # 4. Nothing case
-    @test_logs (:info, "No path provided, running without caching.") barecache(nothing) do
-        x = collect(1:3)
-        y = 4
-        z = "test"
-        (; x = x, y = y, z = z)
-    end
-    out = barecache(nothing) do
+    out = cache(nothing) do
         x = collect(1:3)
         y = 4
         z = "test"
         (; x = x, y = y, z = z)
     end
     @test out == (; x = [1, 2, 3], y = 4, z = "test")
-end
-
-module MyBarecacheModule
-using CacheVariables, Test, DataFrames
-
-@testset "barecache form - in module" begin
-    # 0. module test path
-    dirpath = joinpath(@__DIR__, "data")
-    modpath = joinpath(dirpath, "baremodtest.bson")
-
-    # 1a. save
-    out = barecache(modpath; bson_mod = @__MODULE__) do
-        DataFrame(a = 1:10, b = 'a':'j')
-    end
-
-    # 1b. check: did output return correctly?
-    @test out == DataFrame(a = 1:10, b = 'a':'j')
-
-    # 2. set all variables to nothing
-    out = nothing
-
-    # 3a. load
-    out = barecache(modpath; bson_mod = @__MODULE__) do
-        DataFrame(a = 1:10, b = 'a':'j')
-    end
-
-    # 3b. check: did output return correctly?
-    @test out == DataFrame(a = 1:10, b = 'a':'j')
-end
-
 end
 
 ## Clean up
