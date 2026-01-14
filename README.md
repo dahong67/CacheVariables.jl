@@ -20,11 +20,12 @@ end
 
 The first time this runs,
 it saves the output in a BSON file called `test.bson`.
-The file format is determined by the extension:
-`.bson` for [BSON.jl](https://github.com/JuliaIO/BSON.jl) and `.jld2` for [JLD2.jl](https://github.com/JuliaIO/JLD2.jl).
-Subsequent runs load the saved output from the file
+Subsequent runs load the saved output from the file `test.bson`
 rather than re-running the potentially time-consuming computations!
 Especially handy for long simulations.
+
+The file format is determined by the file extension:
+`.bson` for [BSON.jl](https://github.com/JuliaIO/BSON.jl) and `.jld2` for [JLD2.jl](https://github.com/JuliaIO/JLD2.jl).
 
 An example of the output:
 
@@ -76,11 +77,12 @@ The first time this block runs,
 it identifies the variables `a` and `b` and saves them
 (in addition to the final output `100` that is saved as `ans`)
 in a BSON file called `test.bson`.
-As with the function form, the file format is determined by the extension:
-`.bson` for [BSON.jl](https://github.com/JuliaIO/BSON.jl) and `.jld2` for [JLD2.jl](https://github.com/JuliaIO/JLD2.jl).
-Subsequent runs load the saved values from the file
+Subsequent runs load the saved values from the file `test.bson`
 rather than re-running the potentially time-consuming computations!
 Especially handy for long simulations.
+
+As with the function form, the file format is determined by the file extension:
+`.bson` for [BSON.jl](https://github.com/JuliaIO/BSON.jl) and `.jld2` for [JLD2.jl](https://github.com/JuliaIO/JLD2.jl).
 
 An example of the output:
 
