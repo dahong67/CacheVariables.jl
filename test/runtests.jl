@@ -7,8 +7,8 @@ path = joinpath(dirpath, "test.bson")
 
 ## Test @cache macro with save functionality
 @testset "@cache Save" begin
-    # 1. verify log messages (Saving and metadata)
-    @test_logs (:info, r"Saving cached values") match_mode=:any (@cache path begin
+    # 1. verify log messages (Variable assignments and Saved)
+    @test_logs (:info, "Variable assignments found: x, y, z") (:info, r"Saved cached values") match_mode=:any (@cache path begin
         x = collect(1:3)
         y = 4
         z = "test"
@@ -39,8 +39,8 @@ end
     out = nothing
 
     # 2. file exists: load variables from it
-    # verify log message
-    @test_logs (:info, r"Loaded cached values") match_mode=:any (@cache path begin
+    # verify log messages
+    @test_logs (:info, "Variable assignments found: x, y, z") (:info, r"Loaded cached values") match_mode=:any (@cache path begin
         x = collect(1:3)
         y = 4
         z = "test"
@@ -68,14 +68,14 @@ end
     bson(path; version = VERSION, whenrun = Dates.now(Dates.UTC), runtime = 0.0, 
          val = (vars = (x = nothing, y = nothing, z = nothing), ans = nothing))
 
-    # 2. add `true` to @cache call to overwrite
-    # validate log message
-    @test_logs (:info, r"Overwriting") match_mode=:any (@cache path begin
+    # 2. add overwrite=true to @cache call to overwrite
+    # validate log messages
+    @test_logs (:info, "Variable assignments found: x, y, z") (:info, r"Overwrote") match_mode=:any (@cache path begin
         x = collect(1:3)
         y = 4
         z = "test"
         "final output"
-    end true)
+    end overwrite=true)
 
     # 3. check that correct data was overwritten
     x = nothing
@@ -100,8 +100,8 @@ end
     # 0. Clean up
     rm(path)
 
-    # 1. verify log message
-    @test_logs (:info, r"Saving cached values") match_mode=:any (@cache path begin 2 + 3 end)
+    # 1. verify log messages
+    @test_logs (:info, "No variable assignments found") (:info, r"Saved cached values") match_mode=:any (@cache path begin 2 + 3 end)
 
     # 2. cache ans
     rm(path)
@@ -114,14 +114,105 @@ end
     out = nothing
 
     # 5. file exists: load from it
-    # verify log message
-    @test_logs (:info, r"Loaded cached values") match_mode=:any (@cache path begin 2 + 3 end)
+    # verify log messages
+    @test_logs (:info, "No variable assignments found") (:info, r"Loaded cached values") match_mode=:any (@cache path begin 2 + 3 end)
 
     # load ans
     out = @cache path begin 2 + 3 end
 
     # 6. did output come out correctly?
     @test out == 5
+end
+
+## Test @cache macro with complex variable assignment patterns
+@testset "@cache Complex assignments" begin
+    # 0. Clean up
+    rm(path)
+
+    # 1. Test various assignment patterns
+    # Note: g is assigned twice - once to "test" and once inside let to 2
+    # ExpressionExplorer will detect the assignment inside let, so g=2 is the cached value
+    @test_logs (:info, r"Variable assignments found: a1, a2, b1, b2, c, d, e, f, g, h, x") match_mode=:any (@cache path begin
+        (; a1, a2) = (a1=1, a2=2)   # named tuple destructuring
+        b1, b2 = "test", 2           # destructuring
+        c = begin                    # begin block
+            d = 3                    # assignments in begin block
+            e = 4
+            d + e
+        end
+        begin
+            f = 2                    # assignments in begin block
+            g = "test"
+        end
+        h = let
+            i = 1                    # assignments in let block (should not escape)
+            g = 2                    # this g assignment is detected!
+        end
+        @show x = 10                 # assignment in a macro
+    end)
+
+    # 2. Verify variables entered workspace correctly
+    @test a1 == 1
+    @test a2 == 2
+    @test b1 == "test"
+    @test b2 == 2
+    @test c == 7
+    @test d == 3
+    @test e == 4
+    @test f == 2
+    @test g == 2  # g is assigned inside let block, so that's the value that gets cached
+    @test h == 2
+    @test x == 10
+    
+    # 3. Verify that i is NOT defined (let block variables should not escape)
+    @test !@isdefined(i)
+    
+    # 4. Reset variables
+    a1 = nothing
+    a2 = nothing
+    b1 = nothing
+    b2 = nothing
+    c = nothing
+    d = nothing
+    e = nothing
+    f = nothing
+    g = nothing
+    h = nothing
+    x = nothing
+    
+    # 5. Load from cache
+    @test_logs (:info, r"Variable assignments found: a1, a2, b1, b2, c, d, e, f, g, h, x") (:info, r"Loaded cached values") match_mode=:any (@cache path begin
+        (; a1, a2) = (a1=1, a2=2)
+        b1, b2 = "test", 2
+        c = begin
+            d = 3
+            e = 4
+            d + e
+        end
+        begin
+            f = 2
+            g = "test"
+        end
+        h = let
+            i = 1
+            g = 2
+        end
+        @show x = 10
+    end)
+    
+    # 6. Verify all variables loaded correctly
+    @test a1 == 1
+    @test a2 == 2
+    @test b1 == "test"
+    @test b2 == 2
+    @test c == 7
+    @test d == 3
+    @test e == 4
+    @test f == 2
+    @test g == 2  # g is assigned inside let block
+    @test h == 2
+    @test x == 10
+    @test !@isdefined(i)
 end
 
 ## Test @cache in module
@@ -167,7 +258,7 @@ end
     funcpath = joinpath(dirpath, "functest.bson")
 
     # 1a. Save - verify log message
-    @test_logs (:info, r"Saving cached values") match_mode=:any cache(funcpath) do
+    @test_logs (:info, r"Saved cached values") match_mode=:any cache(funcpath) do
         x = collect(1:3)
         y = 4
         z = "test"

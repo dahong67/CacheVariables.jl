@@ -8,8 +8,7 @@ A lightweight way to save outputs from (expensive) computations.
 ## Function form
 
 The function form saves the output of running a function
-and can be used with the `do...end` syntax. It includes metadata tracking
-(Julia version, timestamp, runtime).
+and can be used with the `do...end` syntax.
 
 ```julia
 cache("test.bson") do
@@ -35,9 +34,9 @@ julia> cache("test.bson") do
          b = "a very long simulation to run"
          return (; a = a, b = b)
        end
-[ Info: Saving cached values to test.bson.
-  Run Timestamp : 2024-01-01T00:00:00.000 UTC (run took 0.123 sec)
-  Julia Version : 1.10.0
+┌ Info: Saved cached values to test.bson.
+│   Run Timestamp : 2024-01-01T00:00:00.000 UTC (run took 0.123 sec)
+└   Julia Version : 1.11.8
 (a = "a very time-consuming quantity to compute", b = "a very long simulation to run")
 
 julia> cache("test.bson") do
@@ -45,9 +44,9 @@ julia> cache("test.bson") do
          b = "a very long simulation to run"
          return (; a = a, b = b)
        end
-[ Info: Loaded cached values from test.bson.
-  Run Timestamp : 2024-01-01T00:00:00.000 UTC (run took 0.123 sec)
-  Julia Version : 1.10.0
+┌ Info: Loaded cached values from test.bson.
+│   Run Timestamp : 2024-01-01T00:00:00.000 UTC (run took 0.123 sec)
+└   Julia Version : 1.11.8
 (a = "a very time-consuming quantity to compute", b = "a very long simulation to run")
 ```
 
@@ -80,7 +79,6 @@ it identifies the variables `a` and `b` and saves them
 along with the final output `100`.
 Subsequent runs load the saved values from the file `test.bson`
 rather than re-running the potentially time-consuming computations!
-The macro transforms your code to use the `cache` function, so metadata tracking is included automatically.
 
 An example of the output:
 
@@ -92,9 +90,10 @@ julia> @cache "test.bson" begin
          b = "a very long simulation to run"
          100
        end
-[ Info: Saving cached values to test.bson.
-  Run Timestamp : 2024-01-01T00:00:00.000 UTC (run took 0.123 sec)
-  Julia Version : 1.10.0
+[ Info: Variable assignments found: a, b
+┌ Info: Saved cached values to test.bson.
+│   Run Timestamp : 2024-01-01T00:00:00.000 UTC (run took 0.123 sec)
+└   Julia Version : 1.11.8
 100
 
 julia> @cache "test.bson" begin
@@ -102,9 +101,10 @@ julia> @cache "test.bson" begin
          b = "a very long simulation to run"
          100
        end
-[ Info: Loaded cached values from test.bson.
-  Run Timestamp : 2024-01-01T00:00:00.000 UTC (run took 0.123 sec)
-  Julia Version : 1.10.0
+[ Info: Variable assignments found: a, b
+┌ Info: Loaded cached values from test.bson.
+│   Run Timestamp : 2024-01-01T00:00:00.000 UTC (run took 0.123 sec)
+└   Julia Version : 1.11.8
 100
 ```
 
@@ -117,20 +117,22 @@ julia> @cache "test.bson" begin
          a = "a very time-consuming quantity to compute"
          b = "a very long simulation to run"
          100
-       end false
-[ Info: Loaded cached values from test.bson.
-  Run Timestamp : 2024-01-01T00:00:00.000 UTC (run took 0.123 sec)
-  Julia Version : 1.10.0
+       end
+[ Info: Variable assignments found: a, b
+┌ Info: Loaded cached values from test.bson.
+│   Run Timestamp : 2024-01-01T00:00:00.000 UTC (run took 0.123 sec)
+└   Julia Version : 1.11.8
 100
 
 julia> @cache "test.bson" begin
          a = "a very time-consuming quantity to compute"
          b = "a very long simulation to run"
          100
-       end true
-[ Info: Overwriting test.bson with cached values.
-  Run Timestamp : 2024-01-01T00:00:00.000 UTC (run took 0.123 sec)
-  Julia Version : 1.10.0
+       end overwrite=true
+[ Info: Variable assignments found: a, b
+┌ Info: Overwrote test.bson with cached values.
+│   Run Timestamp : 2024-01-01T00:00:00.000 UTC (run took 0.123 sec)
+└   Julia Version : 1.11.8
 100
 ```
 
