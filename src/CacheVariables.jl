@@ -4,94 +4,96 @@ using BSON
 import Dates
 import Logging: @info
 using MacroTools: @capture
+using ExpressionExplorer: compute_symbols_state
 
 export @cache, cache
 
 """
-    @cache path let ... end
+    @cache path begin ... end [overwrite=true, bson_mod=@__MODULE__]
 
-Cache the variables defined in a `let...end` block along with the final output.
-Metadata tracking (Julia version, timestamp, runtime) is included automatically.
+Cache the variables assigned in the `begin...end` block as well as the final result.
+Cached values are loaded if the file exists; the code is run and values are saved if not.
+Internally, this simply creates a call to [`cache`](@ref) - see those docs for more info.
 
-Variables assigned in the block are cached along with the final output value.
-Load if the file exists; run and save if it does not.
+Tip: Use the function form [`cache`](@ref) directly to only cache the final result.
+
+!!! warning
+
+    This macro works by parsing the block to identify which variables have been assigned in it.
+    This should generally work, but may not always catch all the variables - check the list
+    printed out to make sure. The function form [`cache`](@ref) can be used for more control.
+
+See also: [`cache`](@ref)
 
 # Examples
 ```julia-repl
-julia> @cache "test.bson" let
-         a = "a very time-consuming quantity to compute"
-         b = "a very long simulation to run"
-         100
+julia> @cache "test.bson" begin
+           a = "a very time-consuming quantity to compute"
+           b = "a very long simulation to run"
+           100
        end
-[ Info: Saving to test.bson
-[ Info: Run was started at 2024-01-01T00:00:00.000 and took 0.123 seconds.
+[ Info: Variable assignments found: a, b
+┌ Info: Saved cached values to test.bson.
+│   Run Timestamp : 2024-01-01T00:00:00.000 UTC (run took 0.123 sec)
+└   Julia Version : 1.11.8
 100
 
-julia> @cache "test.bson" let
-         a = "a very time-consuming quantity to compute"
-         b = "a very long simulation to run"
-         100
+julia> @cache "test.bson" begin
+           a = "a very time-consuming quantity to compute"
+           b = "a very long simulation to run"
+           100
        end
-[ Info: Loading from test.bson
-[ Info: Run was started at 2024-01-01T00:00:00.000 and took 0.123 seconds.
+[ Info: Variable assignments found: a, b
+┌ Info: Loaded cached values from test.bson.
+│   Run Timestamp : 2024-01-01T00:00:00.000 UTC (run took 0.123 sec)
+└   Julia Version : 1.11.8
 100
 ```
 """
 macro cache(path, expr, kwexprs...)
-    # Dispatch to correct method
-    if expr.head === :let
-        _cache_let_block(path, expr, kwexprs...)
+    if expr.head === :block    # begin...end blocks
+        _cache_block(__module__, path, expr, kwexprs...)
     else
-        throw(ArgumentError("@cache currently only supports `let ... end` blocks."))
+        throw(ArgumentError("@cache currently only supports `begin...end` blocks."))
     end
 end
 
-function _cache_let_block(path, body, kwexprs...)
+function _cache_block(mod, path, block, kwexprs...)
     # Process keyword arguments
     kwdict = Dict(:overwrite => false, :bson_mod => :(@__MODULE__))
     for expr in kwexprs
         if @capture(expr, lhs_ = rhs_) && haskey(kwdict, lhs)
             kwdict[lhs] = rhs
+        elseif haskey(kwdict, expr)
+            kwdict[expr] = expr
         else
             throw(ArgumentError("Unsupported optional argument: $expr"))
         end
     end
+    kwargs = [Expr(:kw, key, val) for (key, val) in kwdict]
 
-    # Process body and extract variable names
-    body_cap = @capture body let
-        lines__
-    end
-    body_cap || throw(ArgumentError("`let ... end` block not found"))
-    varnames = Symbol[]
-    for line in lines
-        if @capture(line, lhs_Symbol = rhs_)
-            push!(varnames, lhs)
-        elseif @capture(line, (; lhs__,) = rhs_)
-            append!(varnames, lhs)
-        elseif @capture(line, (lhs__,) = rhs_)
-            append!(varnames, lhs)
-        end
-    end
-    unique!(varnames)
+    # Identify assigned variables and construct @info string
+    expblock = macroexpand(mod, block)
+    varnames = sort(collect(compute_symbols_state(expblock).assignments))
+    varsinfo = isempty(varnames) ?
+               "No variable assignments found" :
+               "Variable assignments found: $(join(varnames, ", "))"
 
-    # Create @info string
-    varinfostring = "@cache identified the variables: $(join(varnames, ", "))"
-
-    # Create cache block
+    # Create the caching code
     return quote
-        # Info string
-        @info $varinfostring
+        # Output @info log about variable assignments found
+        @info $varsinfo
 
-        # Run expression and cache identified variables
-        result = cache($(esc(path)); overwrite=$(esc(kwdict[:overwrite])), bson_mod=$(esc(kwdict[:bson_mod]))) do
-            ans = $(esc(body))
+        # Run the code and cache the identified variables
+        result = cache($(esc(path)); $(esc.(kwargs)...)) do
+            ans = $(esc(block))
             return (; vars=(; $(esc.(varnames)...)), ans)
         end
 
-        # Assign identified variables
+        # Assign the identified variables
         (; $(esc.(varnames)...)) = result.vars
 
-        # Final output
+        # Output final result of the code
         result.ans
     end
 end
