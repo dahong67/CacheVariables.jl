@@ -130,8 +130,10 @@ end
     rm(path)
 
     # 1. Test various assignment patterns
-    # Note: g is assigned twice - once to "test" and once inside let to 2
-    # ExpressionExplorer will detect the assignment inside let, so g=2 is the cached value
+    # Note: ExpressionExplorer detects ALL assignments within the block scope,
+    # including those in let blocks. The final cached values come from the last
+    # assignment to each variable detected. Here, g is assigned twice - once to "test"
+    # and once inside let to 2, so g=2 is the value that gets cached.
     @test_logs (:info, r"Variable assignments found: a1, a2, b1, b2, c, d, e, f, g, h, x") match_mode=:any (@cache path begin
         (; a1, a2) = (a1=1, a2=2)   # named tuple destructuring
         b1, b2 = "test", 2           # destructuring
@@ -145,8 +147,8 @@ end
             g = "test"
         end
         h = let
-            i = 1                    # assignments in let block (should not escape)
-            g = 2                    # this g assignment is detected!
+            i = 1                    # i doesn't escape to caller's scope in normal Julia execution
+            g = 2                    # but ExpressionExplorer detects both i and g assignments
         end
         @show x = 10                 # assignment in a macro
     end)
@@ -164,7 +166,7 @@ end
     @test h == 2
     @test x == 10
     
-    # 3. Verify that i is NOT defined (let block variables should not escape)
+    # 3. Verify that i is NOT defined in caller's scope (let block behavior in normal Julia)
     @test !@isdefined(i)
     
     # 4. Reset variables
@@ -332,7 +334,7 @@ end
 
 ## Test cache function with nothing path
 @testset "cache with nothing" begin
-    # When path is nothing, cache simply runs the function without logging
+    # When path is nothing, cache simply runs the function (no caching-related log messages)
     out = cache(nothing) do
         x = collect(1:3)
         y = 4
