@@ -57,7 +57,6 @@ julia> cache(nothing) do
          b = "a very long simulation to run"
          return (; a = a, b = b)
        end
-[ Info: No cachefile provided - running without caching.
 (a = "a very time-consuming quantity to compute", b = "a very long simulation to run")
 ```
 This can be useful for conditionally saving a cache (see [Using pattern 3 on a cluster](#using-pattern-3-on-a-cluster) below).

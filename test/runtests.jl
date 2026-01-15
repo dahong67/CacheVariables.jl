@@ -332,12 +332,7 @@ end
 
 ## Test cache function with nothing path
 @testset "cache with nothing" begin
-    @test_logs (:info, "No cachefile provided - running without caching.") cache(nothing) do
-        x = collect(1:3)
-        y = 4
-        z = "test"
-        (; x = x, y = y, z = z)
-    end
+    # When path is nothing, cache simply runs the function without logging
     out = cache(nothing) do
         x = collect(1:3)
         y = 4
