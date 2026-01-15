@@ -99,55 +99,57 @@ function _cache_block(mod, path, block, kwexprs...)
 end
 
 """
-    cache(f, path; bson_mod = @__MODULE__, overwrite = false)
+    cache(f, path; overwrite=false, bson_mod=Main)
 
-Cache output from running `f()` using BSON file at `path` with additional metadata.
-Load if the file exists; run and save if it does not.
-Use `bson_mod` keyword argument to specify module.
-Run and save either way if `overwrite` is true (default is false).
+Cache the output of running `f()` in a cache file at `path`.
+The output is loaded if the file exists and is saved otherwise.
 
-If the path is set to `nothing`, then caching is skipped and the function is simply run.
-
-Saves and displays the following metadata:
-- Julia version (from `VERSION`)
-- Time when run (from `Dates.now(Dates.UTC)`)
+In addition to the output of `f()`, the following metadata is saved for the run:
+- Julia version
+- Time when run (in UTC)
 - Runtime of code (in seconds)
 
-Tip: Use `do...end` to cache output from a block of code.
+If `path` is set to `nothing`, caching is disabled and `f()` is simply run.
+This can be useful for conditionally caching the results,
+e.g., to only cache a sweep when the full set is ready.
+If `overwrite` is set to true, existing cache files will be overwritten
+with the results (and metadata) from a "fresh" call to `f()`.
+If necessary, the module to use for BSON can be set with `bson_mod`.
+
+Tip: Use a `do...end` block to cache the results of a block of code.
 
 # Examples
 ```julia-repl
 julia> cache("test.bson") do
-         a = "a very time-consuming quantity to compute"
-         b = "a very long simulation to run"
-         return (; a = a, b = b)
+           a = "a very time-consuming quantity to compute"
+           b = "a very long simulation to run"
+           return (; a = a, b = b)
        end
-[ Info: Saving to test.bson
-[ Info: Run was started at 2024-01-01T00:00:00.000 and took 0.123 seconds.
+┌ Info: Saved cached values to test.bson.
+│   Run Timestamp : 2024-01-01T00:00:00.000 UTC (run took 0.123 sec)
+└   Julia Version : 1.11.8
 (a = "a very time-consuming quantity to compute", b = "a very long simulation to run")
 
 julia> cache("test.bson") do
-         a = "a very time-consuming quantity to compute"
-         b = "a very long simulation to run"
-         return (; a = a, b = b)
+           a = "a very time-consuming quantity to compute"
+           b = "a very long simulation to run"
+           return (; a = a, b = b)
        end
-[ Info: Loading from test.bson
-[ Info: Run was started at 2024-01-01T00:00:00.000 and took 0.123 seconds.
+┌ Info: Loaded cached values from test.bson.
+│   Run Timestamp : 2024-01-01T00:00:00.000 UTC (run took 0.123 sec)
+└   Julia Version : 1.11.8
 (a = "a very time-consuming quantity to compute", b = "a very long simulation to run")
 
 julia> cache(nothing) do
-         a = "a very time-consuming quantity to compute"
-         b = "a very long simulation to run"
-         return (; a = a, b = b)
+           a = "a very time-consuming quantity to compute"
+           b = "a very long simulation to run"
+           return (; a = a, b = b)
        end
-[ Info: No path provided, running without caching.
 (a = "a very time-consuming quantity to compute", b = "a very long simulation to run")
 ```
 """
-function cache(@nospecialize(f), path; bson_mod=@__MODULE__, overwrite=false)
-    @show bson_mod
+function cache(@nospecialize(f), path; overwrite=false, bson_mod=Main)
     if isnothing(path)
-        @info "No cachefile provided - running without caching."
         return f()
     elseif !ispath(path) || overwrite
         # Collect metadata and run function
@@ -156,7 +158,9 @@ function cache(@nospecialize(f), path; bson_mod=@__MODULE__, overwrite=false)
         runtime = @elapsed output = f()
 
         # Log @info message
-        main_msg = ispath(path) ? "Overwriting $path with cached values." : "Saving cached values to $path."
+        main_msg = ispath(path) ?
+                   "Overwrote $path with cached values." :
+                   "Saved cached values to $path."
         @info """
         $main_msg
           Run Timestamp : $whenrun UTC (run took $runtime sec)
