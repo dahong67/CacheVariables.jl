@@ -66,8 +66,13 @@ end
 ## Test overwrite behavior of @cache macro with `keyword = value` form
 @testset "@cache overwrite = value" begin
     # 1. Change file contents
-    bson(path; version=VERSION, whenrun=Dates.now(Dates.UTC), runtime=0.0,
-        val=(vars=(x=nothing, y=nothing, z=nothing), ans=nothing))
+    bson(
+        path;
+        version = VERSION,
+        whenrun = Dates.now(Dates.UTC),
+        runtime = 0.0,
+        val = (vars = (x = nothing, y = nothing, z = nothing), ans = nothing),
+    )
 
     # 2. Verify log messages for overwriting
     log1 = (:info, "Variable assignments found: x, y, z")
@@ -96,8 +101,13 @@ end
 ## Test overwrite behavior of @cache macro with `keyword` form
 @testset "@cache overwrite" begin
     # 1. Change file contents
-    bson(path; version=VERSION, whenrun=Dates.now(Dates.UTC), runtime=0.0,
-        val=(vars=(x=nothing, y=nothing, z=nothing), ans=nothing))
+    bson(
+        path;
+        version = VERSION,
+        whenrun = Dates.now(Dates.UTC),
+        runtime = 0.0,
+        val = (vars = (x = nothing, y = nothing, z = nothing), ans = nothing),
+    )
 
     # 2. Verify log messages for overwriting
     log1 = (:info, "Variable assignments found: x, y, z")
@@ -173,22 +183,22 @@ end
     log1 = (:info, "Variable assignments found: a1, a2, b1, b2, c, d, e, f, g, h, j")
     log2 = (:info, r"^Saved cached values to .+\.")
     @test_logs log1 log2 (@cache path begin
-        (; a1, a2) = (a1=1, a2=2)  # assignment by named tuple destructuring
-        b1, b2 = "test", 2         # assignment by tuple destructuring
-        c = begin                  # assignments in begin block
-            d = 3                  # new assignment should be included
-            e = 4                  # new assignment should be included
-            d + e                  # final answer is assigned to c
+        (; a1, a2) = (a1 = 1, a2 = 2)  # assignment by named tuple destructuring
+        b1, b2 = "test", 2             # assignment by tuple destructuring
+        c = begin                      # assignments in begin block
+            d = 3                      # new assignment should be included
+            e = 4                      # new assignment should be included
+            d + e                      # final answer is assigned to c
         end
-        begin                      # assignments in begin block
-            f = 2                  # new assignment should be included
-            g = "test"             # new assignment should be included
+        begin                          # assignments in begin block
+            f = 2                      # new assignment should be included
+            g = "test"                 # new assignment should be included
         end
-        h = let                    # assignments in let block
-            i = 1                  # new assignment should be included
-            g = 2                  # overwrites earlier g b/c in-function scoping
+        h = let                        # assignments in let block
+            i = 1                      # new assignment should be included
+            g = 2                      # overwrites earlier g b/c in-function scoping
         end
-        @show j = 10               # new assignment in macro should be included
+        @show j = 10                   # new assignment in macro should be included
     end)
 
     # 2. Verify that the variables enter the workspace correctly
@@ -212,22 +222,22 @@ end
     log1 = (:info, "Variable assignments found: a1, a2, b1, b2, c, d, e, f, g, h, j")
     log2 = (:info, r"^Loaded cached values from .+\.")
     @test_logs log1 log2 (@cache path begin
-        (; a1, a2) = (a1=1, a2=2)  # assignment by named tuple destructuring
-        b1, b2 = "test", 2         # assignment by tuple destructuring
-        c = begin                  # assignments in begin block
-            d = 3                  # new assignment should be included
-            e = 4                  # new assignment should be included
-            d + e                  # final answer is assigned to c
+        (; a1, a2) = (a1 = 1, a2 = 2)  # assignment by named tuple destructuring
+        b1, b2 = "test", 2             # assignment by tuple destructuring
+        c = begin                      # assignments in begin block
+            d = 3                      # new assignment should be included
+            e = 4                      # new assignment should be included
+            d + e                      # final answer is assigned to c
         end
-        begin                      # assignments in begin block
-            f = 2                  # new assignment should be included
-            g = "test"             # new assignment should be included
+        begin                          # assignments in begin block
+            f = 2                      # new assignment should be included
+            g = "test"                 # new assignment should be included
         end
-        h = let                    # assignments in let block
-            i = 1                  # new assignment should be included
-            g = 2                  # overwrites earlier g b/c in-function scoping
+        h = let                        # assignments in let block
+            i = 1                      # new assignment should be included
+            g = 2                      # overwrites earlier g b/c in-function scoping
         end
-        @show j = 10               # new assignment in macro should be included
+        @show j = 10                   # new assignment in macro should be included
     end)
 
     # 5. Verify that the variables enter the workspace correctly
@@ -269,10 +279,10 @@ using CacheVariables, Test, DataFrames
 
     # 1. Save and check that variables entered workspace correctly
     out = @cache modpath begin
-        d = DataFrame(a=1:10, b='a':'j')
+        d = DataFrame(; a = 1:10, b = 'a':'j')
         "final output"
     end
-    @test d == DataFrame(a=1:10, b='a':'j')
+    @test d == DataFrame(; a = 1:10, b = 'a':'j')
     @test out == "final output"
 
     # 2. Reset the variables
@@ -280,10 +290,10 @@ using CacheVariables, Test, DataFrames
 
     # 3. Load and check that variables entered workspace correctly
     out = @cache modpath begin
-        d = DataFrame(a=1:10, b='a':'j')
+        d = DataFrame(; a = 1:10, b = 'a':'j')
         "final output"
     end
-    @test d == DataFrame(a=1:10, b='a':'j')
+    @test d == DataFrame(; a = 1:10, b = 'a':'j')
     @test out == "final output"
 end
 
@@ -299,7 +309,7 @@ end
         x = collect(1:3)
         y = 4
         z = "test"
-        return (; x=x, y=y, z=z)
+        return (; x = x, y = y, z = z)
     end
 
     # 2. Delete cache and run again
@@ -308,11 +318,11 @@ end
         x = collect(1:3)
         y = 4
         z = "test"
-        return (; x=x, y=y, z=z)
+        return (; x = x, y = y, z = z)
     end
 
     # 3. Verify the output
-    @test out == (; x=[1, 2, 3], y=4, z="test")
+    @test out == (; x = [1, 2, 3], y = 4, z = "test")
 
     # 4. Reset the output
     out = nothing
@@ -323,7 +333,7 @@ end
         x = collect(1:3)
         y = 4
         z = "test"
-        return (; x=x, y=y, z=z)
+        return (; x = x, y = y, z = z)
     end
 
     # 6. Load output
@@ -331,11 +341,11 @@ end
         x = collect(1:3)
         y = 4
         z = "test"
-        return (; x=x, y=y, z=z)
+        return (; x = x, y = y, z = z)
     end
 
     # 7. Verify the output
-    @test out == (; x=[1, 2, 3], y=4, z="test")
+    @test out == (; x = [1, 2, 3], y = 4, z = "test")
 
     # 8. Verify the metadata
     data = BSON.load(funcpath)
@@ -350,9 +360,9 @@ end
         x = collect(1:3)
         y = 4
         z = "test"
-        return (; x=x, y=y, z=z)
+        return (; x = x, y = y, z = z)
     end
-    @test out == (; x=[1, 2, 3], y=4, z="test")
+    @test out == (; x = [1, 2, 3], y = 4, z = "test")
 end
 
 ## Test cache in a module
@@ -365,22 +375,22 @@ using CacheVariables, Test, DataFrames
     modpath = joinpath(dirpath, "funcmodtest.bson")
 
     # 1. Save and check the output
-    out = cache(modpath; bson_mod=@__MODULE__) do
-        DataFrame(a=1:10, b='a':'j')
+    out = cache(modpath; bson_mod = @__MODULE__) do
+        return DataFrame(; a = 1:10, b = 'a':'j')
     end
-    @test out == DataFrame(a=1:10, b='a':'j')
+    @test out == DataFrame(; a = 1:10, b = 'a':'j')
 
     # 2. Reset the output
     out = nothing
 
     # 3. Load and check the output
-    out = cache(modpath; bson_mod=@__MODULE__) do
-        DataFrame(a=1:10, b='a':'j')
+    out = cache(modpath; bson_mod = @__MODULE__) do
+        return DataFrame(; a = 1:10, b = 'a':'j')
     end
-    @test out == DataFrame(a=1:10, b='a':'j')
+    @test out == DataFrame(; a = 1:10, b = 'a':'j')
 end
 
 end
 
 ## Clean up
-rm(dirpath; recursive=true)
+rm(dirpath; recursive = true)

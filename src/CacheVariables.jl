@@ -102,9 +102,9 @@ function _cache_block(mod, path, block, kwexprs...)
     # Identify assigned variables and construct @info string
     expblock = macroexpand(mod, block)
     varnames = sort(collect(compute_symbols_state(expblock).assignments))
-    varsinfo = isempty(varnames) ?
-               "No variable assignments found" :
-               "Variable assignments found: $(join(varnames, ", "))"
+    varsinfo =
+        isempty(varnames) ? "No variable assignments found" :
+        "Variable assignments found: $(join(varnames, ", "))"
 
     # Create the caching code
     return quote
@@ -114,7 +114,7 @@ function _cache_block(mod, path, block, kwexprs...)
         # Run the code and cache the identified variables
         result = cache($(esc(path)); $(esc.(kwargs)...)) do
             ans = $(esc(block))
-            return (; vars=(; $(esc.(varnames)...)), ans)
+            return (; vars = (; $(esc.(varnames)...)), ans)
         end
 
         # Assign the identified variables
@@ -175,7 +175,7 @@ julia> cache(nothing) do
 (a = "a very time-consuming quantity to compute", b = "a very long simulation to run")
 ```
 """
-function cache(@nospecialize(f), path; overwrite=false, bson_mod=Main)
+function cache(@nospecialize(f), path; overwrite = false, bson_mod = Main)
     if isnothing(path)
         return f()
     elseif !ispath(path) || overwrite
@@ -185,9 +185,9 @@ function cache(@nospecialize(f), path; overwrite=false, bson_mod=Main)
         runtime = @elapsed output = f()
 
         # Log @info message
-        main_msg = ispath(path) ?
-                   "Overwrote $path with cached values." :
-                   "Saved cached values to $path."
+        main_msg =
+            ispath(path) ? "Overwrote $path with cached values." :
+            "Saved cached values to $path."
         @info """
         $main_msg
           Run Timestamp : $whenrun UTC (run took $runtime sec)
