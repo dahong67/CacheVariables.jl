@@ -297,14 +297,14 @@ end
 
     # 8. Verify the metadata
     data = BSON.load(funcpath)
-    @test data.version isa VersionNumber
-    @test data.whenrun isa Dates.DateTime
-    @test data.runtime isa Real && data.runtime >= 0
+    @test data[:version] isa VersionNumber
+    @test data[:whenrun] isa Dates.DateTime
+    @test data[:runtime] isa Real && data[:runtime] >= 0
 end
 
 ## Test cache function with path == nothing
 @testset "cache with path == nothing" begin
-    @test_logs out = cache(nothing) do
+    out = @test_logs cache(nothing) do
         x = collect(1:3)
         y = 4
         z = "test"
@@ -338,6 +338,39 @@ using CacheVariables, Test, DataFrames
     @test out == DataFrame(a=1:10, b='a':'j')
 end
 
+end
+
+## Test error handling for unsupported patterns
+@testset "@cache error handling" begin
+    # Test 1: Non-block expression should error (line 57)
+    @test_throws LoadError @eval @cache "test.bson" x + 1
+    
+    # Test 2: Unsupported keyword argument should error (line 70)
+    @test_throws LoadError @eval @cache "test.bson" begin
+        x = 1
+    end unsupported_kwarg = true
+    
+    # Test 3: Boolean keyword as symbol (line 67-68 branch)
+    # This tests the elseif branch where expr is a symbol in kwdict
+    # The branch sets kwdict[expr] = expr, which means it will try to evaluate
+    # the symbol as a variable. We need to define the variable for this to work.
+    error_test_path = joinpath(dirpath, "error_test.bson")
+    overwrite = true  # Define the variable that will be referenced
+    
+    # First create a cache file to overwrite
+    @cache error_test_path begin
+        y = 1
+    end
+    
+    # Now use the symbol form of overwrite (line 67-68 branch is exercised)
+    log1 = (:info, "Variable assignments found: y")
+    log2 = (:info, Regex("^Overwrote $error_test_path with cached values."))
+    @test_logs log1 log2 (@cache error_test_path begin
+        y = 2
+    end overwrite)
+    
+    # Verify the overwrite flag worked
+    @test y == 2
 end
 
 ## Clean up
