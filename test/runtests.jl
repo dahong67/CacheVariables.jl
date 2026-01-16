@@ -63,8 +63,8 @@ end
     @test out == "final output"
 end
 
-## Test overwrite behavior of @cache macro
-@testset "@cache overwrite" begin
+## Test overwrite behavior of @cache macro with `keyword = value` form
+@testset "@cache overwrite = value" begin
     # 1. Change file contents
     bson(path; version=VERSION, whenrun=Dates.now(Dates.UTC), runtime=0.0,
         val=(vars=(x=nothing, y=nothing, z=nothing), ans=nothing))
@@ -78,6 +78,37 @@ end
         z = "test"
         "final output"
     end overwrite = true)
+
+    # 3. Verify that correct data was written
+    x = y = z = out = nothing
+    out = @cache path begin
+        x = collect(1:3)
+        y = 4
+        z = "test"
+        "final output"
+    end
+    @test x == [1, 2, 3]
+    @test y == 4
+    @test z == "test"
+    @test out == "final output"
+end
+
+## Test overwrite behavior of @cache macro with `keyword` form
+@testset "@cache overwrite" begin
+    # 1. Change file contents
+    bson(path; version=VERSION, whenrun=Dates.now(Dates.UTC), runtime=0.0,
+        val=(vars=(x=nothing, y=nothing, z=nothing), ans=nothing))
+
+    # 2. Verify log messages for overwriting
+    log1 = (:info, "Variable assignments found: x, y, z")
+    log2 = (:info, r"^Overwrote .+ with cached values\.")
+    overwrite = true
+    @test_logs log1 log2 (@cache path begin
+        x = collect(1:3)
+        y = 4
+        z = "test"
+        "final output"
+    end overwrite)
 
     # 3. Verify that correct data was written
     x = y = z = out = nothing
@@ -214,6 +245,17 @@ end
     @test j == 10
 end
 
+## Test unsupported patterns for @cache
+@testset "@cache unsupported patterns" begin
+    # Not a supported pattern
+    @test_throws ArgumentError @macroexpand @cache "test.bson" x + 1
+
+    # Unsupported keyword argument
+    @test_throws ArgumentError @macroexpand @cache "test.bson" begin
+        x = 1
+    end unsupported_kwarg = true
+end
+
 ## Test @cache in a module
 # Motivated by Pluto and based on test case from:
 # https://github.com/JuliaIO/BSON.jl/issues/25
@@ -338,39 +380,6 @@ using CacheVariables, Test, DataFrames
     @test out == DataFrame(a=1:10, b='a':'j')
 end
 
-end
-
-## Test error handling for unsupported patterns
-@testset "@cache error handling" begin
-    # Test 1: Non-block expression should error (line 57)
-    @test_throws LoadError @eval @cache "test.bson" x + 1
-
-    # Test 2: Unsupported keyword argument should error (line 70)
-    @test_throws LoadError @eval @cache "test.bson" begin
-        x = 1
-    end unsupported_kwarg = true
-
-    # Test 3: Boolean keyword as symbol (line 67-68 branch)
-    # This tests the elseif branch where expr is a symbol in kwdict
-    # The branch sets kwdict[expr] = expr, which means it will try to evaluate
-    # the symbol as a variable. We need to define the variable for this to work.
-    error_test_path = joinpath(dirpath, "error_test.bson")
-    overwrite = true  # Define the variable that will be referenced
-
-    # First create a cache file to overwrite
-    @cache error_test_path begin
-        y = 1
-    end
-
-    # Now use the symbol form of overwrite (line 67-68 branch is exercised)
-    log1 = (:info, "Variable assignments found: y")
-    log2 = (:info, r"^Overwrote .+ with cached values\.")
-    @test_logs log1 log2 (@cache error_test_path begin
-        y = 2
-    end overwrite)
-
-    # Verify the overwrite flag worked
-    @test y == 2
 end
 
 ## Clean up
