@@ -335,4 +335,4 @@ end
 end
 
 ## Clean up
-rm(dirpath; recursive = true)
+rm(dirpath; recursive=true)
