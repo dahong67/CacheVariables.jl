@@ -163,6 +163,11 @@ julia> a, b    # b was overwritten in the first let block but not the second
 ("a very time-consuming quantity to compute", "this will overwrite the variable b")
 ```
 
+> [!WARNING]
+> This macro works by parsing the block to identify which variables have been assigned in it.
+> This should generally work, but may not always catch all the variables - check the list
+> printed out to make sure. The function form `cache` can be used for more control.
+
 ## Caching the results of a sweep
 
 It can be common to need to cache the results of a large sweep (e.g., over parameters or trials of a simulation).
