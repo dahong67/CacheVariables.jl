@@ -5,16 +5,19 @@ dirpath = joinpath(@__DIR__, "data")
 isdir(dirpath) && error("Test directory already has a data subdirectory.")
 path = joinpath(dirpath, "test.bson")
 
-## Test @cache macro with save functionality
-@testset "@cache Save" begin
-    # 1. verify log messages (Variable assignments and Saved)
-    @test_logs (:info, "Variable assignments found: x, y, z") (:info, r"Saved cached values") match_mode=:any (@cache path begin
+## Test save behavior of @cache macro
+@testset "@cache save" begin
+    # 1. Verify log messages for saving
+    log1 = (:info, "Variable assignments found: x, y, z")
+    log2 = (:info, Regex("^Saved cached values to $path."))
+    @test_logs log1 log2 (@cache path begin
         x = collect(1:3)
         y = 4
         z = "test"
         "final output"
     end)
 
+    # 2. Delete cache and run again
     rm(path)
     out = @cache path begin
         x = collect(1:3)
@@ -23,31 +26,29 @@ path = joinpath(dirpath, "test.bson")
         "final output"
     end
 
-    # 2. did variables enter workspace correctly?
+    # 3. Verify that the variables enter the workspace correctly
     @test x == [1, 2, 3]
     @test y == 4
     @test z == "test"
     @test out == "final output"
 end
 
-## Test @cache macro with load functionality
-@testset "@cache Load" begin
-    # 1. set all variables to nothing
-    x = nothing
-    y = nothing
-    z = nothing
-    out = nothing
+## Test load behavior of @cache macro
+@testset "@cache load" begin
+    # 1. Reset the variables
+    x = y = z = out = nothing
 
-    # 2. file exists: load variables from it
-    # verify log messages
-    @test_logs (:info, "Variable assignments found: x, y, z") (:info, r"Loaded cached values") match_mode=:any (@cache path begin
+    # 2. Verify log messages for loading
+    log1 = (:info, "Variable assignments found: x, y, z")
+    log2 = (:info, Regex("^Loaded cached values from $path."))
+    @test_logs log1 log2 (@cache path begin
         x = collect(1:3)
         y = 4
         z = "test"
         "final output"
     end)
 
-    # load variables
+    # 3. Load variables
     out = @cache path begin
         x = collect(1:3)
         y = 4
@@ -55,105 +56,111 @@ end
         "final output"
     end
 
-    # 3. did variables enter workspace correctly?
+    # 4. Verify that the variables enter the workspace correctly
     @test x == [1, 2, 3]
     @test y == 4
     @test z == "test"
     @test out == "final output"
 end
 
-## Test @cache macro with overwrite behavior
-@testset "@cache Overwrite" begin
-    # 1. change file contents to invalid data - simulating corrupted cache
-    bson(path; version = VERSION, whenrun = Dates.now(Dates.UTC), runtime = 0.0, 
-         val = (vars = (x = nothing, y = nothing, z = nothing), ans = nothing))
+## Test overwrite behavior of @cache macro
+@testset "@cache overwrite" begin
+    # 1. Change file contents
+    bson(path; version=VERSION, whenrun=Dates.now(Dates.UTC), runtime=0.0,
+        val=(vars=(x=nothing, y=nothing, z=nothing), ans=nothing))
 
-    # 2. add overwrite=true to @cache call to overwrite
-    # validate log messages
-    @test_logs (:info, "Variable assignments found: x, y, z") (:info, r"Overwrote") match_mode=:any (@cache path begin
+    # 2. Verify log messages for overwriting
+    log1 = (:info, "Variable assignments found: x, y, z")
+    log2 = (:info, Regex("^Overwrote $path with cached values."))
+    @test_logs log1 log2 (@cache path begin
         x = collect(1:3)
         y = 4
         z = "test"
         "final output"
-    end overwrite=true)
+    end overwrite = true)
 
-    # 3. check that correct data was overwritten
-    x = nothing
-    y = nothing
-    z = nothing
-    out = nothing
+    # 3. Verify that correct data was written
+    x = y = z = out = nothing
     out = @cache path begin
         x = collect(1:3)
         y = 4
         z = "test"
         "final output"
     end
-
     @test x == [1, 2, 3]
     @test y == 4
     @test z == "test"
     @test out == "final output"
 end
 
-## Test @cache macro with no variable case
-@testset "@cache Only ans" begin
+## Test behavior of @cache macro with no assigned variables
+@testset "@cache no assigned variables" begin
     # 0. Clean up
     rm(path)
 
-    # 1. verify log messages
-    @test_logs (:info, "No variable assignments found") (:info, r"Saved cached values") match_mode=:any (@cache path begin 2 + 3 end)
+    # 1. Verify log messages for saving
+    log1 = (:info, "No variable assignments found")
+    log2 = (:info, Regex("^Saved cached values to $path."))
+    @test_logs log1 log2 (@cache path begin
+        2 + 3
+    end)
 
-    # 2. cache ans
+    # 2. Delete cache and run again
     rm(path)
-    out = @cache path begin 2 + 3 end
+    out = @cache path begin
+        2 + 3
+    end
 
-    # 3. did output come out correctly?
+    # 3. Verify the output
     @test out == 5
 
-    # 4. set variable to nothing
+    # 4. Reset the output variable
     out = nothing
 
-    # 5. file exists: load from it
-    # verify log messages
-    @test_logs (:info, "No variable assignments found") (:info, r"Loaded cached values") match_mode=:any (@cache path begin 2 + 3 end)
+    # 5. Verify log messages for loading
+    log1 = (:info, "No variable assignments found")
+    log2 = (:info, Regex("^Loaded cached values from $path."))
+    @test_logs log1 log2 (@cache path begin
+        2 + 3
+    end)
 
-    # load ans
-    out = @cache path begin 2 + 3 end
+    # 6. Load variables
+    out = @cache path begin
+        2 + 3
+    end
 
-    # 6. did output come out correctly?
+    # 7. Verify the output
     @test out == 5
 end
 
-## Test @cache macro with complex variable assignment patterns
-@testset "@cache Complex assignments" begin
+## Test @cache macro on a complicated begin...end block
+@testset "@cache complicated begin...end block" begin
     # 0. Clean up
     rm(path)
 
-    # 1. Test various assignment patterns
-    # Note: ExpressionExplorer detects ALL assignments within the block scope,
-    # including those in let blocks. The final cached values come from the last
-    # assignment to each variable detected. Here, g is assigned twice - once to "test"
-    # and once inside let to 2, so g=2 is the value that gets cached.
-    @test_logs (:info, r"Variable assignments found: a1, a2, b1, b2, c, d, e, f, g, h, x") match_mode=:any (@cache path begin
-        (; a1, a2) = (a1=1, a2=2)   # named tuple destructuring
-        b1, b2 = "test", 2           # destructuring
-        c = begin                    # begin block
-            d = 3                    # assignments in begin block
-            e = 4
-            d + e
+    # 1. Save and verify log messages
+    log1 = (:info, "Variable assignments found: a1, a2, b1, b2, c, d, e, f, g, h, j")
+    log2 = (:info, Regex("^Saved cached values to $path."))
+    @test_logs log1 log2 (@cache path begin
+        (; a1, a2) = (a1=1, a2=2)  # assignment by named tuple destructuring
+        b1, b2 = "test", 2         # assignment by tuple destructuring
+        c = begin                  # assignments in begin block
+            d = 3                  # new assignment should be included
+            e = 4                  # new assignment should be included
+            d + e                  # final answer is assigned to c
         end
-        begin
-            f = 2                    # assignments in begin block
-            g = "test"
+        begin                      # assignments in begin block
+            f = 2                  # new assignment should be included
+            g = "test"             # new assignment should be included
         end
-        h = let
-            i = 1                    # i doesn't escape to caller's scope in normal Julia execution
-            g = 2                    # but ExpressionExplorer detects both i and g assignments
+        h = let                    # assignments in let block
+            i = 1                  # new assignment should be included
+            g = 2                  # overwrites earlier g b/c in-function scoping
         end
-        @show x = 10                 # assignment in a macro
+        @show j = 10               # new assignment in macro should be included
     end)
 
-    # 2. Verify variables entered workspace correctly
+    # 2. Verify that the variables enter the workspace correctly
     @test a1 == 1
     @test a2 == 2
     @test b1 == "test"
@@ -162,47 +169,37 @@ end
     @test d == 3
     @test e == 4
     @test f == 2
-    @test g == 2  # g is assigned inside let block, so that's the value that gets cached
+    @test g == 2  # overwritten inside the let block b/c in-function scoping
     @test h == 2
-    @test x == 10
-    
-    # 3. Verify that i is NOT defined in caller's scope (let block behavior in normal Julia)
     @test !@isdefined(i)
-    
-    # 4. Reset variables
-    a1 = nothing
-    a2 = nothing
-    b1 = nothing
-    b2 = nothing
-    c = nothing
-    d = nothing
-    e = nothing
-    f = nothing
-    g = nothing
-    h = nothing
-    x = nothing
-    
-    # 5. Load from cache
-    @test_logs (:info, r"Variable assignments found: a1, a2, b1, b2, c, d, e, f, g, h, x") (:info, r"Loaded cached values") match_mode=:any (@cache path begin
-        (; a1, a2) = (a1=1, a2=2)
-        b1, b2 = "test", 2
-        c = begin
-            d = 3
-            e = 4
-            d + e
+    @test j == 10
+
+    # 3. Reset the variables
+    a1 = a2 = b1 = b2 = c = d = e = f = g = h = j = nothing
+
+    # 4. Load and verify log messages
+    log1 = (:info, "Variable assignments found: a1, a2, b1, b2, c, d, e, f, g, h, j")
+    log2 = (:info, Regex("^Loaded cached values from $path."))
+    @test_logs log1 log2 (@cache path begin
+        (; a1, a2) = (a1=1, a2=2)  # assignment by named tuple destructuring
+        b1, b2 = "test", 2         # assignment by tuple destructuring
+        c = begin                  # assignments in begin block
+            d = 3                  # new assignment should be included
+            e = 4                  # new assignment should be included
+            d + e                  # final answer is assigned to c
         end
-        begin
-            f = 2
-            g = "test"
+        begin                      # assignments in begin block
+            f = 2                  # new assignment should be included
+            g = "test"             # new assignment should be included
         end
-        h = let
-            i = 1
-            g = 2
+        h = let                    # assignments in let block
+            i = 1                  # new assignment should be included
+            g = 2                  # overwrites earlier g b/c in-function scoping
         end
-        @show x = 10
+        @show j = 10               # new assignment in macro should be included
     end)
-    
-    # 6. Verify all variables loaded correctly
+
+    # 5. Verify that the variables enter the workspace correctly
     @test a1 == 1
     @test a2 == 2
     @test b1 == "test"
@@ -211,45 +208,40 @@ end
     @test d == 3
     @test e == 4
     @test f == 2
-    @test g == 2  # g is assigned inside let block
+    @test g == 2  # overwritten inside the let block b/c in-function scoping
     @test h == 2
-    @test x == 10
     @test !@isdefined(i)
+    @test j == 10
 end
 
-## Test @cache in module
+## Test @cache in a module
 # Motivated by Pluto and based on test case from:
 # https://github.com/JuliaIO/BSON.jl/issues/25
 module MyModule
 using CacheVariables, Test, DataFrames
 
-@testset "@cache In module" begin
-    # 0. module test path
+@testset "@cache in a module" begin
+    # 0. Define module test path
     dirpath = joinpath(@__DIR__, "data")
     modpath = joinpath(dirpath, "modtest.bson")
 
-    # 1a. save
+    # 1. Save and check that variables entered workspace correctly
     out = @cache modpath begin
-        d = DataFrame(a = 1:10, b = 'a':'j')
+        d = DataFrame(a=1:10, b='a':'j')
         "final output"
     end
-
-    # 1b. check: did variables enter workspace correctly?
-    @test d == DataFrame(a = 1:10, b = 'a':'j')
+    @test d == DataFrame(a=1:10, b='a':'j')
     @test out == "final output"
 
-    # 2. set all variables to nothing
-    d = nothing
-    out = nothing
+    # 2. Reset the variables
+    d = out = nothing
 
-    # 3a. load
+    # 3. Load and check that variables entered workspace correctly
     out = @cache modpath begin
-        d = DataFrame(a = 1:10, b = 'a':'j')
+        d = DataFrame(a=1:10, b='a':'j')
         "final output"
     end
-
-    # 3b. check: did variables enter workspace correctly?
-    @test d == DataFrame(a = 1:10, b = 'a':'j')
+    @test d == DataFrame(a=1:10, b='a':'j')
     @test out == "final output"
 end
 
