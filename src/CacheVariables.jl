@@ -1,10 +1,10 @@
 module CacheVariables
 
 using BSON
-import Dates
-import Logging: @info
-using MacroTools: @capture
+using Dates: UTC, now
 using ExpressionExplorer: compute_symbols_state
+using Logging: @info
+using MacroTools: @capture
 
 export @cache, cache
 
@@ -181,7 +181,7 @@ function cache(@nospecialize(f), path; overwrite = false, bson_mod = Main)
     elseif !ispath(path) || overwrite
         # Collect metadata and run function
         version = VERSION
-        whenrun = Dates.now(Dates.UTC)
+        whenrun = now(UTC)
         runtime = @elapsed output = f()
 
         # Log @info message
