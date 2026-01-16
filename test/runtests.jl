@@ -294,6 +294,12 @@ end
 
     # 7. Verify the output
     @test out == (; x=[1, 2, 3], y=4, z="test")
+
+    # 8. Verify the metadata
+    data = BSON.load(funcpath)
+    @test data.version isa VersionNumber
+    @test data.whenrun isa Dates.DateTime
+    @test data.runtime isa Real && data.runtime >= 0
 end
 
 ## Test cache function with path == nothing
