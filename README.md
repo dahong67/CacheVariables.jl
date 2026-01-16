@@ -152,7 +152,9 @@ julia> cache("test.bson") do
                return result
            end
        end
-[ Info: Saving cached values to test.bson.
+┌ Info: Saved cached values to test.bson.
+│   Run Timestamp : 2024-01-01T00:00:00.000 UTC (run took 0.123 sec)
+└   Julia Version : 1.11.8
 3-element Vector{String}:
  "time-consuming result of run 1"
  "time-consuming result of run 2"
@@ -164,7 +166,9 @@ julia> cache("test.bson") do
                return result
            end
        end
-[ Info: Loaded cached values from test.bson.
+┌ Info: Loaded cached values from test.bson.
+│   Run Timestamp : 2024-01-01T00:00:00.000 UTC (run took 0.123 sec)
+└   Julia Version : 1.11.8
 3-element Vector{Any}:
  "time-consuming result of run 1"
  "time-consuming result of run 2"
@@ -186,9 +190,15 @@ julia> map(1:3) do run
                return result
            end
        end
-[ Info: Saving cached values to cache/run-1.bson.
-[ Info: Saving cached values to cache/run-2.bson.
-[ Info: Saving cached values to cache/run-3.bson.
+┌ Info: Saved cached values to cache/run-1.bson.
+│   Run Timestamp : 2024-01-01T00:00:00.000 UTC (run took 0.123 sec)
+└   Julia Version : 1.11.8
+┌ Info: Saved cached values to cache/run-2.bson.
+│   Run Timestamp : 2024-01-01T00:00:00.000 UTC (run took 0.123 sec)
+└   Julia Version : 1.11.8
+┌ Info: Saved cached values to cache/run-3.bson.
+│   Run Timestamp : 2024-01-01T00:00:00.000 UTC (run took 0.123 sec)
+└   Julia Version : 1.11.8
 3-element Vector{String}:
  "time-consuming result of run 1"
  "time-consuming result of run 2"
@@ -200,9 +210,15 @@ julia> map(1:3) do run
                return result
            end
        end
-[ Info: Loaded cached values from cache/run-1.bson.
-[ Info: Loaded cached values from cache/run-2.bson.
-[ Info: Loaded cached values from cache/run-3.bson.
+┌ Info: Loaded cached values from cache/run-1.bson.
+│   Run Timestamp : 2024-01-01T00:00:00.000 UTC (run took 0.123 sec)
+└   Julia Version : 1.11.8
+┌ Info: Loaded cached values from cache/run-2.bson.
+│   Run Timestamp : 2024-01-01T00:00:00.000 UTC (run took 0.123 sec)
+└   Julia Version : 1.11.8
+┌ Info: Loaded cached values from cache/run-3.bson.
+│   Run Timestamp : 2024-01-01T00:00:00.000 UTC (run took 0.123 sec)
+└   Julia Version : 1.11.8
 3-element Vector{String}:
  "time-consuming result of run 1"
  "time-consuming result of run 2"
@@ -231,7 +247,9 @@ julia> map((1:3)[SUBSET]) do run
                return result
            end
        end
-[ Info: Saving to cache/run-2.bson
+┌ Info: Saved cached values to cache/run-2.bson.
+│   Run Timestamp : 2024-01-01T00:00:00.000 UTC (run took 0.123 sec)
+└   Julia Version : 1.11.8
 1-element Vector{String}:
  "time-consuming result of run 2"
 ```
@@ -255,10 +273,18 @@ julia> cache("fullsweep.bson") do
                end
            end
        end
-[ Info: Saving to cache/run-1.bson
-[ Info: Saving to cache/run-2.bson
-[ Info: Saving to cache/run-3.bson
-[ Info: Saving to fullsweep.bson
+┌ Info: Saved cached values to cache/run-1.bson.
+│   Run Timestamp : 2024-01-01T00:00:00.000 UTC (run took 0.123 sec)
+└   Julia Version : 1.11.8
+┌ Info: Saved cached values to cache/run-2.bson.
+│   Run Timestamp : 2024-01-01T00:00:00.000 UTC (run took 0.123 sec)
+└   Julia Version : 1.11.8
+┌ Info: Saved cached values to cache/run-3.bson.
+│   Run Timestamp : 2024-01-01T00:00:00.000 UTC (run took 0.123 sec)
+└   Julia Version : 1.11.8
+┌ Info: Saved cached values to fullsweep.bson.
+│   Run Timestamp : 2024-01-01T00:00:00.000 UTC (run took 0.123 sec)
+└   Julia Version : 1.11.8
 3-element Vector{String}:
  "time-consuming result of run 1"
  "time-consuming result of run 2"
@@ -272,7 +298,9 @@ julia> cache("fullsweep.bson") do
                end
            end
        end
-[ Info: Loading from fullsweep.bson
+┌ Info: Loaded cached values from fullsweep.bson.
+│   Run Timestamp : 2024-01-01T00:00:00.000 UTC (run took 0.123 sec)
+└   Julia Version : 1.11.8
 3-element Vector{Any}:
  "time-consuming result of run 1"
  "time-consuming result of run 2"
@@ -307,8 +335,9 @@ julia> cache(SUBSET === Colon() ? "fullsweep.bson" : nothing) do
                end
            end
        end
-[ Info: No path provided, running without caching.
-[ Info: Saving to cache/run-2.bson
+┌ Info: Saved cached values to cache/run-2.bson.
+│   Run Timestamp : 2024-01-01T00:00:00.000 UTC (run took 0.123 sec)
+└   Julia Version : 1.11.8
 1-element Vector{String}:
  "time-consuming result of run 2"
 ```
