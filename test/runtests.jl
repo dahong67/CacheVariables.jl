@@ -295,34 +295,38 @@ end
 ## Test @cache in a module
 # Motivated by Pluto and based on test case from:
 # https://github.com/JuliaIO/BSON.jl/issues/25
-module MyModule
-using CacheVariables, Test, DataFrames
-
 @testitem "@cache in a module" begin
     using CacheVariables, DataFrames
-    dirpath = joinpath(@__DIR__, "data")
-    modpath = joinpath(dirpath, "modtest.bson")
+    
+    module MyModule
+    using CacheVariables, Test, DataFrames
+    
+    function run_test()
+        dirpath = joinpath(@__DIR__, "..", "data")
+        modpath = joinpath(dirpath, "modtest.bson")
 
-    # 1. Save and check that variables entered workspace correctly
-    out = @cache modpath begin
-        d = DataFrame(; a = 1:10, b = 'a':'j')
-        "final output"
+        # 1. Save and check that variables entered workspace correctly
+        out = @cache modpath begin
+            d = DataFrame(; a = 1:10, b = 'a':'j')
+            "final output"
+        end
+        @test d == DataFrame(; a = 1:10, b = 'a':'j')
+        @test out == "final output"
+
+        # 2. Reset the variables
+        d = out = nothing
+
+        # 3. Load and check that variables entered workspace correctly
+        out = @cache modpath begin
+            d = DataFrame(; a = 1:10, b = 'a':'j')
+            "final output"
+        end
+        @test d == DataFrame(; a = 1:10, b = 'a':'j')
+        @test out == "final output"
     end
-    @test d == DataFrame(; a = 1:10, b = 'a':'j')
-    @test out == "final output"
-
-    # 2. Reset the variables
-    d = out = nothing
-
-    # 3. Load and check that variables entered workspace correctly
-    out = @cache modpath begin
-        d = DataFrame(; a = 1:10, b = 'a':'j')
-        "final output"
     end
-    @test d == DataFrame(; a = 1:10, b = 'a':'j')
-    @test out == "final output"
-end
-
+    
+    MyModule.run_test()
 end
 
 ## Test save and load behavior of cache function
@@ -396,30 +400,34 @@ end
 end
 
 ## Test cache in a module
-module MyCacheModule
-using CacheVariables, Test, DataFrames
-
 @testitem "cache in a module" begin
     using CacheVariables, DataFrames
-    dirpath = joinpath(@__DIR__, "data")
-    modpath = joinpath(dirpath, "funcmodtest.bson")
+    
+    module MyCacheModule
+    using CacheVariables, Test, DataFrames
+    
+    function run_test()
+        dirpath = joinpath(@__DIR__, "..", "data")
+        modpath = joinpath(dirpath, "funcmodtest.bson")
 
-    # 1. Save and check the output
-    out = cache(modpath; bson_mod = @__MODULE__) do
-        return DataFrame(; a = 1:10, b = 'a':'j')
+        # 1. Save and check the output
+        out = cache(modpath; bson_mod = @__MODULE__) do
+            return DataFrame(; a = 1:10, b = 'a':'j')
+        end
+        @test out == DataFrame(; a = 1:10, b = 'a':'j')
+
+        # 2. Reset the output
+        out = nothing
+
+        # 3. Load and check the output
+        out = cache(modpath; bson_mod = @__MODULE__) do
+            return DataFrame(; a = 1:10, b = 'a':'j')
+        end
+        @test out == DataFrame(; a = 1:10, b = 'a':'j')
     end
-    @test out == DataFrame(; a = 1:10, b = 'a':'j')
-
-    # 2. Reset the output
-    out = nothing
-
-    # 3. Load and check the output
-    out = cache(modpath; bson_mod = @__MODULE__) do
-        return DataFrame(; a = 1:10, b = 'a':'j')
     end
-    @test out == DataFrame(; a = 1:10, b = 'a':'j')
-end
-
+    
+    MyCacheModule.run_test()
 end
 
 ## Clean up
