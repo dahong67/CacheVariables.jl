@@ -12,9 +12,9 @@ and can be used with the `do...end` syntax.
 
 ```julia
 cache("test.bson") do
-  a = "a very time-consuming quantity to compute"
-  b = "a very long simulation to run"
-  return (; a = a, b = b)
+    a = "a very time-consuming quantity to compute"
+    b = "a very long simulation to run"
+    return (; a = a, b = b)
 end
 ```
 
@@ -30,9 +30,9 @@ An example of the output:
 julia> using CacheVariables
 
 julia> cache("test.bson") do
-         a = "a very time-consuming quantity to compute"
-         b = "a very long simulation to run"
-         return (; a = a, b = b)
+           a = "a very time-consuming quantity to compute"
+           b = "a very long simulation to run"
+           return (; a = a, b = b)
        end
 ┌ Info: Saved cached values to test.bson.
 │   Run Timestamp : 2024-01-01T00:00:00.000 UTC (run took 0.123 sec)
@@ -40,9 +40,9 @@ julia> cache("test.bson") do
 (a = "a very time-consuming quantity to compute", b = "a very long simulation to run")
 
 julia> cache("test.bson") do
-         a = "a very time-consuming quantity to compute"
-         b = "a very long simulation to run"
-         return (; a = a, b = b)
+           a = "a very time-consuming quantity to compute"
+           b = "a very long simulation to run"
+           return (; a = a, b = b)
        end
 ┌ Info: Loaded cached values from test.bson.
 │   Run Timestamp : 2024-01-01T00:00:00.000 UTC (run took 0.123 sec)
@@ -53,9 +53,9 @@ julia> cache("test.bson") do
 If the path is set to `nothing`, then caching is skipped and the function is simply run.
 ```julia
 julia> cache(nothing) do
-         a = "a very time-consuming quantity to compute"
-         b = "a very long simulation to run"
-         return (; a = a, b = b)
+           a = "a very time-consuming quantity to compute"
+           b = "a very long simulation to run"
+           return (; a = a, b = b)
        end
 (a = "a very time-consuming quantity to compute", b = "a very long simulation to run")
 ```
@@ -67,9 +67,9 @@ The macro form automatically caches the variables defined in a `begin...end` blo
 
 ```julia
 @cache "test.bson" begin
-  a = "a very time-consuming quantity to compute"
-  b = "a very long simulation to run"
-  100
+    a = "a very time-consuming quantity to compute"
+    b = "a very long simulation to run"
+    100
 end
 ```
 
@@ -85,9 +85,9 @@ An example of the output:
 julia> using CacheVariables
 
 julia> @cache "test.bson" begin
-         a = "a very time-consuming quantity to compute"
-         b = "a very long simulation to run"
-         100
+           a = "a very time-consuming quantity to compute"
+           b = "a very long simulation to run"
+           100
        end
 [ Info: Variable assignments found: a, b
 ┌ Info: Saved cached values to test.bson.
@@ -96,9 +96,9 @@ julia> @cache "test.bson" begin
 100
 
 julia> @cache "test.bson" begin
-         a = "a very time-consuming quantity to compute"
-         b = "a very long simulation to run"
-         100
+           a = "a very time-consuming quantity to compute"
+           b = "a very long simulation to run"
+           100
        end
 [ Info: Variable assignments found: a, b
 ┌ Info: Loaded cached values from test.bson.
@@ -113,9 +113,9 @@ even when a file with the given name already exists.
 
 ```julia
 julia> @cache "test.bson" begin
-         a = "a very time-consuming quantity to compute"
-         b = "a very long simulation to run"
-         100
+           a = "a very time-consuming quantity to compute"
+           b = "a very long simulation to run"
+           100
        end
 [ Info: Variable assignments found: a, b
 ┌ Info: Loaded cached values from test.bson.
@@ -124,9 +124,9 @@ julia> @cache "test.bson" begin
 100
 
 julia> @cache "test.bson" begin
-         a = "a very time-consuming quantity to compute"
-         b = "a very long simulation to run"
-         100
+           a = "a very time-consuming quantity to compute"
+           b = "a very long simulation to run"
+           100
        end overwrite=true
 [ Info: Variable assignments found: a, b
 ┌ Info: Overwrote test.bson with cached values.
