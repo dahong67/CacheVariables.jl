@@ -25,9 +25,9 @@ Tip: Use the function form [`cache`](@ref) directly to only cache the final resu
 
 !!! warning
 
-    This macro works by parsing the block to identify which variables have been assigned in it.
+    This macro parses the block to identify which variables have been assigned in it.
     This should generally work, but may not always catch all the variables - check the list
-    printed out to make sure. The function form [`cache`](@ref) can be used for more control.
+    printed to make sure. The function form [`cache`](@ref) can be used for more control.
 
 See also: [`cache`](@ref)
 
