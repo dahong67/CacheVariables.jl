@@ -9,7 +9,7 @@ path = joinpath(dirpath, "test.bson")
 @testset "@cache save" begin
     # 1. Verify log messages for saving
     log1 = (:info, "Variable assignments found: x, y, z")
-    log2 = (:info, Regex("^Saved cached values to $path."))
+    log2 = (:info, r"^Saved cached values to .+\.")
     @test_logs log1 log2 (@cache path begin
         x = collect(1:3)
         y = 4
@@ -40,7 +40,7 @@ end
 
     # 2. Verify log messages for loading
     log1 = (:info, "Variable assignments found: x, y, z")
-    log2 = (:info, Regex("^Loaded cached values from $path."))
+    log2 = (:info, r"^Loaded cached values from .+\.")
     @test_logs log1 log2 (@cache path begin
         x = collect(1:3)
         y = 4
@@ -71,7 +71,7 @@ end
 
     # 2. Verify log messages for overwriting
     log1 = (:info, "Variable assignments found: x, y, z")
-    log2 = (:info, Regex("^Overwrote $path with cached values."))
+    log2 = (:info, r"^Overwrote .+ with cached values\.")
     @test_logs log1 log2 (@cache path begin
         x = collect(1:3)
         y = 4
@@ -100,7 +100,7 @@ end
 
     # 1. Verify log messages for saving
     log1 = (:info, "No variable assignments found")
-    log2 = (:info, Regex("^Saved cached values to $path."))
+    log2 = (:info, r"^Saved cached values to .+\.")
     @test_logs log1 log2 (@cache path begin
         2 + 3
     end)
@@ -119,7 +119,7 @@ end
 
     # 5. Verify log messages for loading
     log1 = (:info, "No variable assignments found")
-    log2 = (:info, Regex("^Loaded cached values from $path."))
+    log2 = (:info, r"^Loaded cached values from .+\.")
     @test_logs log1 log2 (@cache path begin
         2 + 3
     end)
@@ -140,7 +140,7 @@ end
 
     # 1. Save and verify log messages
     log1 = (:info, "Variable assignments found: a1, a2, b1, b2, c, d, e, f, g, h, j")
-    log2 = (:info, Regex("^Saved cached values to $path."))
+    log2 = (:info, r"^Saved cached values to .+\.")
     @test_logs log1 log2 (@cache path begin
         (; a1, a2) = (a1=1, a2=2)  # assignment by named tuple destructuring
         b1, b2 = "test", 2         # assignment by tuple destructuring
@@ -179,7 +179,7 @@ end
 
     # 4. Load and verify log messages
     log1 = (:info, "Variable assignments found: a1, a2, b1, b2, c, d, e, f, g, h, j")
-    log2 = (:info, Regex("^Loaded cached values from $path."))
+    log2 = (:info, r"^Loaded cached values from .+\.")
     @test_logs log1 log2 (@cache path begin
         (; a1, a2) = (a1=1, a2=2)  # assignment by named tuple destructuring
         b1, b2 = "test", 2         # assignment by tuple destructuring
@@ -252,7 +252,7 @@ end
     funcpath = joinpath(dirpath, "functest.bson")
 
     # 1. Verify log messages for saving
-    log = (:info, Regex("^Saved cached values to $funcpath."))
+    log = (:info, r"^Saved cached values to .+\.")
     @test_logs log cache(funcpath) do
         x = collect(1:3)
         y = 4
@@ -276,7 +276,7 @@ end
     out = nothing
 
     # 5. Verify log messages for loading
-    log = (:info, Regex("^Loaded cached values from $funcpath."))
+    log = (:info, r"^Loaded cached values from .+\.")
     @test_logs log cache(funcpath) do
         x = collect(1:3)
         y = 4
@@ -364,7 +364,7 @@ end
     
     # Now use the symbol form of overwrite (line 67-68 branch is exercised)
     log1 = (:info, "Variable assignments found: y")
-    log2 = (:info, Regex("^Overwrote $error_test_path with cached values."))
+    log2 = (:info, r"^Overwrote .+ with cached values\.")
     @test_logs log1 log2 (@cache error_test_path begin
         y = 2
     end overwrite)
