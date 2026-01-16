@@ -40,6 +40,14 @@ end
     mkpath(dirpath)
     path = joinpath(dirpath, "test-load.bson")
 
+    # 0. Create cache file first
+    @cache path begin
+        x = collect(1:3)
+        y = 4
+        z = "test"
+        "final output"
+    end
+
     # 1. Reset the variables
     x = y = z = out = nothing
 
