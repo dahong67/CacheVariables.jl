@@ -17,6 +17,12 @@ Internally, this simply creates a call to [`cache`](@ref) - see those docs for m
 
 Tip: Use the function form [`cache`](@ref) directly to only cache the final result.
 
+!!! note
+
+    Since this macro wraps the provided code into a function to pass to [`cache`](@ref),
+    the relevant scoping rules apply. This can produce potentially suprising behavior,
+    e.g., with `let` blocks. See the examples below.
+
 !!! warning
 
     This macro works by parsing the block to identify which variables have been assigned in it.
@@ -48,6 +54,27 @@ julia> @cache "test.bson" begin
 │   Run Timestamp : 2024-01-01T00:00:00.000 UTC (run took 0.123 sec)
 └   Julia Version : 1.11.8
 100
+
+julia> @cache "test-with-let.bson" begin
+           a = "a very time-consuming quantity to compute"
+           b = "a very long simulation to run"
+           let
+               c = "this will not be cached"
+               b = "this will overwrite the variable b"
+           end
+           let
+               local b = "this will not overwrite b"
+           end
+           100
+       end
+[ Info: Variable assignments found: a, b
+┌ Info: Saved cached values to test-with-let.bson.
+│   Run Timestamp : 2024-01-01T00:00:00.000 UTC (run took 0.123 sec)
+└   Julia Version : 1.11.8
+100
+
+julia> a, b    # b was overwritten in the first let block but not the second
+("a very time-consuming quantity to compute", "this will overwrite the variable b")
 ```
 """
 macro cache(path, expr, kwexprs...)

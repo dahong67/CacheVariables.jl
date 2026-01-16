@@ -135,6 +135,34 @@ julia> @cache "test.bson" begin
 100
 ```
 
+Internally, this simply wraps the provided code into a function and calls `cache`,
+so the relevant scoping rules apply.
+This can produce potentially suprising behavior,
+as shown by the following example:
+
+```julia
+julia> @cache "test-with-let.bson" begin
+           a = "a very time-consuming quantity to compute"
+           b = "a very long simulation to run"
+           let
+               c = "this will not be cached"
+               b = "this will overwrite the variable b"
+           end
+           let
+               local b = "this will not overwrite b"
+           end
+           100
+       end
+[ Info: Variable assignments found: a, b
+┌ Info: Saved cached values to test-with-let.bson.
+│   Run Timestamp : 2024-01-01T00:00:00.000 UTC (run took 0.123 sec)
+└   Julia Version : 1.11.8
+100
+
+julia> a, b    # b was overwritten in the first let block but not the second
+("a very time-consuming quantity to compute", "this will overwrite the variable b")
+```
+
 ## Caching the results of a sweep
 
 It can be common to need to cache the results of a large sweep (e.g., over parameters or trials of a simulation).
