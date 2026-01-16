@@ -157,7 +157,7 @@ end
     path = joinpath(dirpath, "test.bson")
 
     # 0. Clean up
-    rm(path)
+    rm(path; force = true)
 
     # 1. Verify log messages for saving
     log1 = (:info, "No variable assignments found")
@@ -202,7 +202,7 @@ end
     path = joinpath(dirpath, "test.bson")
 
     # 0. Clean up
-    rm(path)
+    rm(path; force = true)
 
     # 1. Save and verify log messages
     log1 = (:info, "Variable assignments found: a1, a2, b1, b2, c, d, e, f, g, h, j")
