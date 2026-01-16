@@ -5,7 +5,7 @@ using CacheVariables, BSON, Dates, Test, TestItemRunner
     using CacheVariables, BSON, Dates
     dirpath = joinpath(@__DIR__, "data")
     mkpath(dirpath)
-    path = joinpath(dirpath, "test.bson")
+    path = joinpath(dirpath, "test-save.bson")
 
     # 1. Verify log messages for saving
     log1 = (:info, "Variable assignments found: x, y, z")
@@ -38,7 +38,7 @@ end
     using CacheVariables, BSON, Dates
     dirpath = joinpath(@__DIR__, "data")
     mkpath(dirpath)
-    path = joinpath(dirpath, "test.bson")
+    path = joinpath(dirpath, "test-load.bson")
 
     # 1. Reset the variables
     x = y = z = out = nothing
@@ -73,7 +73,7 @@ end
     using CacheVariables, BSON, Dates
     dirpath = joinpath(@__DIR__, "data")
     mkpath(dirpath)
-    path = joinpath(dirpath, "test.bson")
+    path = joinpath(dirpath, "test-overwrite-value.bson")
 
     # 1. Change file contents
     bson(
@@ -113,7 +113,7 @@ end
     using CacheVariables, BSON, Dates
     dirpath = joinpath(@__DIR__, "data")
     mkpath(dirpath)
-    path = joinpath(dirpath, "test.bson")
+    path = joinpath(dirpath, "test-overwrite.bson")
 
     # 1. Change file contents
     bson(
@@ -154,7 +154,7 @@ end
     using CacheVariables, BSON, Dates
     dirpath = joinpath(@__DIR__, "data")
     mkpath(dirpath)
-    path = joinpath(dirpath, "test.bson")
+    path = joinpath(dirpath, "test-no-vars.bson")
 
     # 0. Clean up
     rm(path; force = true)
@@ -199,7 +199,7 @@ end
     using CacheVariables, BSON, Dates
     dirpath = joinpath(@__DIR__, "data")
     mkpath(dirpath)
-    path = joinpath(dirpath, "test.bson")
+    path = joinpath(dirpath, "test-complicated.bson")
 
     # 0. Clean up
     rm(path; force = true)
