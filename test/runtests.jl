@@ -1,14 +1,10 @@
 using CacheVariables, BSON, Dates, Test, TestItemRunner
 
-## Add data directory, define data file path
-dirpath = joinpath(@__DIR__, "data")
-isdir(dirpath) && error("Test directory already has a data subdirectory.")
-path = joinpath(dirpath, "test.bson")
-
 ## Test save behavior of @cache macro
 @testitem "@cache save" begin
     using CacheVariables, BSON, Dates
     dirpath = joinpath(@__DIR__, "data")
+    mkpath(dirpath)
     path = joinpath(dirpath, "test.bson")
 
     # 1. Verify log messages for saving
@@ -41,6 +37,7 @@ end
 @testitem "@cache load" begin
     using CacheVariables, BSON, Dates
     dirpath = joinpath(@__DIR__, "data")
+    mkpath(dirpath)
     path = joinpath(dirpath, "test.bson")
 
     # 1. Reset the variables
@@ -75,6 +72,7 @@ end
 @testitem "@cache overwrite = value" begin
     using CacheVariables, BSON, Dates
     dirpath = joinpath(@__DIR__, "data")
+    mkpath(dirpath)
     path = joinpath(dirpath, "test.bson")
 
     # 1. Change file contents
@@ -114,6 +112,7 @@ end
 @testitem "@cache overwrite" begin
     using CacheVariables, BSON, Dates
     dirpath = joinpath(@__DIR__, "data")
+    mkpath(dirpath)
     path = joinpath(dirpath, "test.bson")
 
     # 1. Change file contents
@@ -154,6 +153,7 @@ end
 @testitem "@cache no assigned variables" begin
     using CacheVariables, BSON, Dates
     dirpath = joinpath(@__DIR__, "data")
+    mkpath(dirpath)
     path = joinpath(dirpath, "test.bson")
 
     # 0. Clean up
@@ -198,6 +198,7 @@ end
 @testitem "@cache complicated begin...end block" begin
     using CacheVariables, BSON, Dates
     dirpath = joinpath(@__DIR__, "data")
+    mkpath(dirpath)
     path = joinpath(dirpath, "test.bson")
 
     # 0. Clean up
@@ -303,6 +304,7 @@ end
     
     function run_test()
         dirpath = joinpath(@__DIR__, "..", "data")
+        mkpath(dirpath)
         modpath = joinpath(dirpath, "modtest.bson")
 
         # 1. Save and check that variables entered workspace correctly
@@ -333,6 +335,7 @@ end
 @testitem "cache save and load" begin
     using CacheVariables, BSON, Dates
     dirpath = joinpath(@__DIR__, "data")
+    mkpath(dirpath)
     funcpath = joinpath(dirpath, "functest.bson")
 
     # 1. Verify log messages for saving
@@ -408,6 +411,7 @@ end
     
     function run_test()
         dirpath = joinpath(@__DIR__, "..", "data")
+        mkpath(dirpath)
         modpath = joinpath(dirpath, "funcmodtest.bson")
 
         # 1. Save and check the output
@@ -429,8 +433,5 @@ end
     
     MyCacheModule.run_test()
 end
-
-## Clean up
-rm(dirpath; recursive = true)
 
 @run_package_tests
