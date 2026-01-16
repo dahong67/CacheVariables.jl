@@ -12,9 +12,9 @@ and can be used with the `do...end` syntax.
 
 ```julia
 cache("test.bson") do
-  a = "a very time-consuming quantity to compute"
-  b = "a very long simulation to run"
-  return (; a = a, b = b)
+    a = "a very time-consuming quantity to compute"
+    b = "a very long simulation to run"
+    return (; a = a, b = b)
 end
 ```
 
@@ -30,53 +30,54 @@ An example of the output:
 julia> using CacheVariables
 
 julia> cache("test.bson") do
-         a = "a very time-consuming quantity to compute"
-         b = "a very long simulation to run"
-         return (; a = a, b = b)
+           a = "a very time-consuming quantity to compute"
+           b = "a very long simulation to run"
+           return (; a = a, b = b)
        end
-[ Info: Saving to test.bson
+┌ Info: Saved cached values to test.bson.
+│   Run Timestamp : 2024-01-01T00:00:00.000 UTC (run took 0.123 sec)
+└   Julia Version : 1.11.8
 (a = "a very time-consuming quantity to compute", b = "a very long simulation to run")
 
 julia> cache("test.bson") do
-         a = "a very time-consuming quantity to compute"
-         b = "a very long simulation to run"
-         return (; a = a, b = b)
+           a = "a very time-consuming quantity to compute"
+           b = "a very long simulation to run"
+           return (; a = a, b = b)
        end
-[ Info: Loading from test.bson
+┌ Info: Loaded cached values from test.bson.
+│   Run Timestamp : 2024-01-01T00:00:00.000 UTC (run took 0.123 sec)
+└   Julia Version : 1.11.8
 (a = "a very time-consuming quantity to compute", b = "a very long simulation to run")
 ```
 
 If the path is set to `nothing`, then caching is skipped and the function is simply run.
 ```julia
 julia> cache(nothing) do
-         a = "a very time-consuming quantity to compute"
-         b = "a very long simulation to run"
-         return (; a = a, b = b)
+           a = "a very time-consuming quantity to compute"
+           b = "a very long simulation to run"
+           return (; a = a, b = b)
        end
-[ Info: No path provided, running without caching.
 (a = "a very time-consuming quantity to compute", b = "a very long simulation to run")
 ```
 This can be useful for conditionally saving a cache (see [Using pattern 3 on a cluster](#using-pattern-3-on-a-cluster) below).
 
 ## Macro form
 
-The macro form looks at the code to determine what variables to save.
+The macro form automatically caches the variables defined in a `begin...end` block.
 
 ```julia
 @cache "test.bson" begin
-  a = "a very time-consuming quantity to compute"
-  b = "a very long simulation to run"
-  100
+    a = "a very time-consuming quantity to compute"
+    b = "a very long simulation to run"
+    100
 end
 ```
 
 The first time this block runs,
 it identifies the variables `a` and `b` and saves them
-(in addition to the final output `100` that is saved as `ans`)
-in a BSON file called `test.bson`.
+along with the final output `100`.
 Subsequent runs load the saved values from the file `test.bson`
 rather than re-running the potentially time-consuming computations!
-Especially handy for long simulations.
 
 An example of the output:
 
@@ -84,56 +85,88 @@ An example of the output:
 julia> using CacheVariables
 
 julia> @cache "test.bson" begin
-         a = "a very time-consuming quantity to compute"
-         b = "a very long simulation to run"
-         100
+           a = "a very time-consuming quantity to compute"
+           b = "a very long simulation to run"
+           100
        end
-┌ Info: Saving to test.bson
-│ a
-└ b
+[ Info: Variable assignments found: a, b
+┌ Info: Saved cached values to test.bson.
+│   Run Timestamp : 2024-01-01T00:00:00.000 UTC (run took 0.123 sec)
+└   Julia Version : 1.11.8
 100
 
 julia> @cache "test.bson" begin
-         a = "a very time-consuming quantity to compute"
-         b = "a very long simulation to run"
-         100
+           a = "a very time-consuming quantity to compute"
+           b = "a very long simulation to run"
+           100
        end
-┌ Info: Loading from test.bson
-│ a
-└ b
+[ Info: Variable assignments found: a, b
+┌ Info: Loaded cached values from test.bson.
+│   Run Timestamp : 2024-01-01T00:00:00.000 UTC (run took 0.123 sec)
+└   Julia Version : 1.11.8
 100
 ```
 
-An optional `overwrite` flag (default is false) at the end
+An optional `overwrite` keyword argument (default is false)
 tells the macro to always save,
 even when a file with the given name already exists.
 
 ```julia
 julia> @cache "test.bson" begin
-         a = "a very time-consuming quantity to compute"
-         b = "a very long simulation to run"
-         100
-       end false
-┌ Info: Loading from test.bson
-│ a
-└ b
+           a = "a very time-consuming quantity to compute"
+           b = "a very long simulation to run"
+           100
+       end
+[ Info: Variable assignments found: a, b
+┌ Info: Loaded cached values from test.bson.
+│   Run Timestamp : 2024-01-01T00:00:00.000 UTC (run took 0.123 sec)
+└   Julia Version : 1.11.8
 100
 
 julia> @cache "test.bson" begin
-         a = "a very time-consuming quantity to compute"
-         b = "a very long simulation to run"
-         100
-       end true
-┌ Info: Overwriting test.bson
-│ a
-└ b
+           a = "a very time-consuming quantity to compute"
+           b = "a very long simulation to run"
+           100
+       end overwrite=true
+[ Info: Variable assignments found: a, b
+┌ Info: Overwrote test.bson with cached values.
+│   Run Timestamp : 2024-01-01T00:00:00.000 UTC (run took 0.123 sec)
+└   Julia Version : 1.11.8
 100
 ```
 
-**Caveat:**
-The variable name `ans` is used for storing the final output
-(`100` in the above examples),
-so it is best to avoid using this as a variable name.
+Internally, this simply wraps the provided code into a function and calls `cache`,
+so the relevant scoping rules apply.
+This can produce potentially suprising behavior,
+as shown by the following example:
+
+```julia
+julia> @cache "test-with-let.bson" begin
+           a = "a very time-consuming quantity to compute"
+           b = "a very long simulation to run"
+           let
+               c = "this will not be cached"
+               b = "this will overwrite the variable b"
+           end
+           let
+               local b = "this will not overwrite b"
+           end
+           100
+       end
+[ Info: Variable assignments found: a, b
+┌ Info: Saved cached values to test-with-let.bson.
+│   Run Timestamp : 2024-01-01T00:00:00.000 UTC (run took 0.123 sec)
+└   Julia Version : 1.11.8
+100
+
+julia> a, b    # b was overwritten in the first let block but not the second
+("a very time-consuming quantity to compute", "this will overwrite the variable b")
+```
+
+> [!WARNING]
+> This macro works by parsing the block to identify which variables have been assigned in it.
+> This should generally work, but may not always catch all the variables - check the list
+> printed out to make sure. The function form `cache` can be used for more control.
 
 ## Caching the results of a sweep
 
@@ -152,7 +185,9 @@ julia> cache("test.bson") do
                return result
            end
        end
-[ Info: Saving to test.bson
+┌ Info: Saved cached values to test.bson.
+│   Run Timestamp : 2024-01-01T00:00:00.000 UTC (run took 0.123 sec)
+└   Julia Version : 1.11.8
 3-element Vector{String}:
  "time-consuming result of run 1"
  "time-consuming result of run 2"
@@ -164,7 +199,9 @@ julia> cache("test.bson") do
                return result
            end
        end
-[ Info: Loading from test.bson
+┌ Info: Loaded cached values from test.bson.
+│   Run Timestamp : 2024-01-01T00:00:00.000 UTC (run took 0.123 sec)
+└   Julia Version : 1.11.8
 3-element Vector{Any}:
  "time-consuming result of run 1"
  "time-consuming result of run 2"
@@ -186,9 +223,15 @@ julia> map(1:3) do run
                return result
            end
        end
-[ Info: Saving to cache/run-1.bson
-[ Info: Saving to cache/run-2.bson
-[ Info: Saving to cache/run-3.bson
+┌ Info: Saved cached values to cache/run-1.bson.
+│   Run Timestamp : 2024-01-01T00:00:00.000 UTC (run took 0.123 sec)
+└   Julia Version : 1.11.8
+┌ Info: Saved cached values to cache/run-2.bson.
+│   Run Timestamp : 2024-01-01T00:00:00.000 UTC (run took 0.123 sec)
+└   Julia Version : 1.11.8
+┌ Info: Saved cached values to cache/run-3.bson.
+│   Run Timestamp : 2024-01-01T00:00:00.000 UTC (run took 0.123 sec)
+└   Julia Version : 1.11.8
 3-element Vector{String}:
  "time-consuming result of run 1"
  "time-consuming result of run 2"
@@ -200,9 +243,15 @@ julia> map(1:3) do run
                return result
            end
        end
-[ Info: Loading from cache/run-1.bson
-[ Info: Loading from cache/run-2.bson
-[ Info: Loading from cache/run-3.bson
+┌ Info: Loaded cached values from cache/run-1.bson.
+│   Run Timestamp : 2024-01-01T00:00:00.000 UTC (run took 0.123 sec)
+└   Julia Version : 1.11.8
+┌ Info: Loaded cached values from cache/run-2.bson.
+│   Run Timestamp : 2024-01-01T00:00:00.000 UTC (run took 0.123 sec)
+└   Julia Version : 1.11.8
+┌ Info: Loaded cached values from cache/run-3.bson.
+│   Run Timestamp : 2024-01-01T00:00:00.000 UTC (run took 0.123 sec)
+└   Julia Version : 1.11.8
 3-element Vector{String}:
  "time-consuming result of run 1"
  "time-consuming result of run 2"
@@ -231,7 +280,9 @@ julia> map((1:3)[SUBSET]) do run
                return result
            end
        end
-[ Info: Saving to cache/run-2.bson
+┌ Info: Saved cached values to cache/run-2.bson.
+│   Run Timestamp : 2024-01-01T00:00:00.000 UTC (run took 0.123 sec)
+└   Julia Version : 1.11.8
 1-element Vector{String}:
  "time-consuming result of run 2"
 ```
@@ -255,10 +306,18 @@ julia> cache("fullsweep.bson") do
                end
            end
        end
-[ Info: Saving to cache/run-1.bson
-[ Info: Saving to cache/run-2.bson
-[ Info: Saving to cache/run-3.bson
-[ Info: Saving to fullsweep.bson
+┌ Info: Saved cached values to cache/run-1.bson.
+│   Run Timestamp : 2024-01-01T00:00:00.000 UTC (run took 0.123 sec)
+└   Julia Version : 1.11.8
+┌ Info: Saved cached values to cache/run-2.bson.
+│   Run Timestamp : 2024-01-01T00:00:00.000 UTC (run took 0.123 sec)
+└   Julia Version : 1.11.8
+┌ Info: Saved cached values to cache/run-3.bson.
+│   Run Timestamp : 2024-01-01T00:00:00.000 UTC (run took 0.123 sec)
+└   Julia Version : 1.11.8
+┌ Info: Saved cached values to fullsweep.bson.
+│   Run Timestamp : 2024-01-01T00:00:00.000 UTC (run took 0.123 sec)
+└   Julia Version : 1.11.8
 3-element Vector{String}:
  "time-consuming result of run 1"
  "time-consuming result of run 2"
@@ -272,7 +331,9 @@ julia> cache("fullsweep.bson") do
                end
            end
        end
-[ Info: Loading from fullsweep.bson
+┌ Info: Loaded cached values from fullsweep.bson.
+│   Run Timestamp : 2024-01-01T00:00:00.000 UTC (run took 0.123 sec)
+└   Julia Version : 1.11.8
 3-element Vector{Any}:
  "time-consuming result of run 1"
  "time-consuming result of run 2"
@@ -307,8 +368,9 @@ julia> cache(SUBSET === Colon() ? "fullsweep.bson" : nothing) do
                end
            end
        end
-[ Info: No path provided, running without caching.
-[ Info: Saving to cache/run-2.bson
+┌ Info: Saved cached values to cache/run-2.bson.
+│   Run Timestamp : 2024-01-01T00:00:00.000 UTC (run took 0.123 sec)
+└   Julia Version : 1.11.8
 1-element Vector{String}:
  "time-consuming result of run 2"
 ```
