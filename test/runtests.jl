@@ -247,93 +247,91 @@ end
 
 end
 
-## Test cache function form (formerly cachemeta)
-@testset "cache form" begin
+## Test save and load behavior of cache function
+@testset "cache save and load" begin
     funcpath = joinpath(dirpath, "functest.bson")
 
-    # 1a. Save - verify log message
-    @test_logs (:info, r"Saved cached values") match_mode=:any cache(funcpath) do
+    # 1. Verify log messages for saving
+    log = (:info, Regex("^Saved cached values to $funcpath."))
+    @test_logs log cache(funcpath) do
         x = collect(1:3)
         y = 4
         z = "test"
-        (; x = x, y = y, z = z)
+        return (; x=x, y=y, z=z)
     end
 
-    # 1b. Save - save values to cache
+    # 2. Delete cache and run again
     rm(funcpath)
     out = cache(funcpath) do
         x = collect(1:3)
         y = 4
         z = "test"
-        (; x = x, y = y, z = z)
+        return (; x=x, y=y, z=z)
     end
 
-    # 1c. Save - did output return correctly?
-    @test out == (; x = [1, 2, 3], y = 4, z = "test")
+    # 3. Verify the output
+    @test out == (; x=[1, 2, 3], y=4, z="test")
 
-    # 2. Reset - set all variables to nothing
+    # 4. Reset the output
     out = nothing
 
-    # 3a. Load - verify log message
-    @test_logs (:info, r"Loaded cached values") match_mode=:any cache(funcpath) do
+    # 5. Verify log messages for loading
+    log = (:info, Regex("^Loaded cached values from $funcpath."))
+    @test_logs log cache(funcpath) do
         x = collect(1:3)
         y = 4
         z = "test"
-        (; x = x, y = y, z = z)
+        return (; x=x, y=y, z=z)
     end
 
-    # 3b. Load - load values from cache
+    # 6. Load output
     out = cache(funcpath) do
         x = collect(1:3)
         y = 4
         z = "test"
-        (; x = x, y = y, z = z)
+        return (; x=x, y=y, z=z)
     end
 
-    # 3c. Load - did output return correctly?
-    @test out == (; x = [1, 2, 3], y = 4, z = "test")
+    # 7. Verify the output
+    @test out == (; x=[1, 2, 3], y=4, z="test")
 end
 
-module MyCacheModule
-using CacheVariables, Test, DataFrames
-
-@testset "cache form - in module" begin
-    # 0. module test path
-    dirpath = joinpath(@__DIR__, "data")
-    modpath = joinpath(dirpath, "funcmodtest.bson")
-
-    # 1a. save
-    out = cache(modpath; bson_mod = @__MODULE__) do
-        DataFrame(a = 1:10, b = 'a':'j')
-    end
-
-    # 1b. check: did output return correctly?
-    @test out == DataFrame(a = 1:10, b = 'a':'j')
-
-    # 2. set all variables to nothing
-    out = nothing
-
-    # 3a. load
-    out = cache(modpath; bson_mod = @__MODULE__) do
-        DataFrame(a = 1:10, b = 'a':'j')
-    end
-
-    # 3b. check: did output return correctly?
-    @test out == DataFrame(a = 1:10, b = 'a':'j')
-end
-
-end
-
-## Test cache function with nothing path
-@testset "cache with nothing" begin
-    # When path is nothing, cache simply runs the function (no caching-related log messages)
-    out = cache(nothing) do
+## Test cache function with path == nothing
+@testset "cache with path == nothing" begin
+    @test_logs out = cache(nothing) do
         x = collect(1:3)
         y = 4
         z = "test"
-        (; x = x, y = y, z = z)
+        return (; x=x, y=y, z=z)
     end
-    @test out == (; x = [1, 2, 3], y = 4, z = "test")
+    @test out == (; x=[1, 2, 3], y=4, z="test")
+end
+
+## Test cache in a module
+module MyCacheModule
+using CacheVariables, Test, DataFrames
+
+@testset "cache in a module" begin
+    # 0. Define module test path
+    dirpath = joinpath(@__DIR__, "data")
+    modpath = joinpath(dirpath, "funcmodtest.bson")
+
+    # 1. Save and check the output
+    out = cache(modpath; bson_mod=@__MODULE__) do
+        DataFrame(a=1:10, b='a':'j')
+    end
+    @test out == DataFrame(a=1:10, b='a':'j')
+
+    # 2. Reset the output
+    out = nothing
+
+    # 3. Load and check the output
+    out = cache(modpath; bson_mod=@__MODULE__) do
+        DataFrame(a=1:10, b='a':'j')
+    end
+    @test out == DataFrame(a=1:10, b='a':'j')
+end
+
 end
 
 ## Clean up
