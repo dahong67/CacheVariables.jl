@@ -65,7 +65,7 @@ end
     mktempdir(@__DIR__; prefix = "temp_") do dirpath
         path = joinpath(dirpath, "test-overwrite-value.bson")
 
-        # 1. Change file contents
+        # 1. Create file with missing contents
         bson(
             path;
             version = VERSION,
@@ -105,7 +105,7 @@ end
     mktempdir(@__DIR__; prefix = "temp_") do dirpath
         path = joinpath(dirpath, "test-overwrite.bson")
 
-        # 1. Change file contents
+        # 1. Create file with missing contents
         bson(
             path;
             version = VERSION,
@@ -186,7 +186,7 @@ end
     mktempdir(@__DIR__; prefix = "temp_") do dirpath
         path = joinpath(dirpath, "test-complicated.bson")
 
-        # 1. Save - run without log check so variables escape properly
+        # 1. First run - save
         @cache path begin
             (; a1, a2) = (a1 = 1, a2 = 2)  # assignment by named tuple destructuring
             b1, b2 = "test", 2             # assignment by tuple destructuring
@@ -223,7 +223,7 @@ end
         # 3. Reset the variables
         a1 = a2 = b1 = b2 = c = d = e = f = g = h = j = nothing
 
-        # 4. Load - run without log check so variables escape properly
+        # 4. Second run - load
         @cache path begin
             (; a1, a2) = (a1 = 1, a2 = 2)  # assignment by named tuple destructuring
             b1, b2 = "test", 2             # assignment by tuple destructuring
