@@ -1,7 +1,7 @@
 using TestItemRunner
 
-## Test save and load behavior of @cache macro
-@testitem "@cache save and load" begin
+## Test save and load behavior of @cache macro with BSON format
+@testitem "@cache save and load (BSON)" begin
     mktempdir(@__DIR__; prefix = "temp_") do dirpath
         path = joinpath(dirpath, "test.bson")
 
@@ -302,8 +302,8 @@ end
     end
 end
 
-## Test save and load behavior of cache function
-@testitem "cache save and load" begin
+## Test save and load behavior of cache function with BSON format
+@testitem "cache save and load (BSON)" begin
     using BSON, Dates
     mktempdir(@__DIR__; prefix = "temp_") do dirpath
         funcpath = joinpath(dirpath, "functest.bson")
@@ -341,7 +341,7 @@ end
             return (; x = x, y = y, z = z)
         end
 
-        # 6. Load output
+        # 6. Load the output
         out = cache(funcpath) do
             x = collect(1:3)
             y = 4
@@ -371,9 +371,9 @@ end
     @test out == (; x = [1, 2, 3], y = 4, z = "test")
 end
 
-## Test cache in a module
-@testitem "cache in a module" begin
-    module MyCacheModule
+## Test cache in a module (BSON)
+@testitem "cache in a module (BSON)" begin
+    module MyCacheModuleBSON
     using CacheVariables, Test, DataFrames
 
     mktempdir(@__DIR__; prefix = "temp_") do dirpath
@@ -397,15 +397,15 @@ end
     end
 end
 
-## Test JLD2 format - function form
-@testitem "cache with JLD2 format" begin
+## Test save and load behavior of cache function with JLD2 format
+@testitem "cache save and load (JLD2)" begin
     using JLD2, Dates
     mktempdir(@__DIR__; prefix = "temp_") do dirpath
-        jld2path = joinpath(dirpath, "jld2test.jld2")
+        funcpath = joinpath(dirpath, "functest.jld2")
 
         # 1. Verify log messages for saving
-        log1 = (:info, r"^Saved cached values to .+\.")
-        @test_logs log1 match_mode = :any cache(jld2path) do
+        log = (:info, r"^Saved cached values to .+\.")
+        @test_logs log cache(funcpath) do
             x = collect(1:3)
             y = 4
             z = "test"
@@ -413,8 +413,8 @@ end
         end
 
         # 2. Delete cache and run again
-        rm(jld2path)
-        out = cache(jld2path) do
+        rm(funcpath)
+        out = cache(funcpath) do
             x = collect(1:3)
             y = 4
             z = "test"
@@ -428,16 +428,16 @@ end
         out = nothing
 
         # 5. Verify log messages for loading
-        log1 = (:info, r"^Loaded cached values from .+\.")
-        @test_logs log1 match_mode = :any cache(jld2path) do
+        log = (:info, r"^Loaded cached values from .+\.")
+        @test_logs log cache(funcpath) do
             x = collect(1:3)
             y = 4
             z = "test"
             return (; x = x, y = y, z = z)
         end
 
-        # 6. Load values from cache
-        out = cache(jld2path) do
+        # 6. Load the output
+        out = cache(funcpath) do
             x = collect(1:3)
             y = 4
             z = "test"
@@ -448,23 +448,22 @@ end
         @test out == (; x = [1, 2, 3], y = 4, z = "test")
 
         # 8. Verify the metadata
-        data = JLD2.load(jld2path)
+        data = JLD2.load(funcpath)
         @test data["version"] isa VersionNumber
         @test data["whenrun"] isa Dates.DateTime
         @test data["runtime"] isa Real && data["runtime"] >= 0
     end
 end
 
-## Test JLD2 format - macro form
-@testitem "@cache with JLD2 format" begin
-    using JLD2
+## Test save and load behavior of @cache macro with JLD2 format
+@testitem "@cache save and load (JLD2)" begin
     mktempdir(@__DIR__; prefix = "temp_") do dirpath
-        jld2macropath = joinpath(dirpath, "jld2macro.jld2")
+        path = joinpath(dirpath, "test.jld2")
 
         # 1. Verify log messages for saving
         log1 = (:info, "Variable assignments found: x, y, z")
         log2 = (:info, r"^Saved cached values to .+\.")
-        @test_logs log1 log2 (@cache jld2macropath begin
+        @test_logs log1 log2 (@cache path begin
             x = collect(1:3)
             y = 4
             z = "test"
@@ -472,8 +471,8 @@ end
         end)
 
         # 2. Delete cache and run again
-        rm(jld2macropath)
-        out = @cache jld2macropath begin
+        rm(path)
+        out = @cache path begin
             x = collect(1:3)
             y = 4
             z = "test"
@@ -492,7 +491,7 @@ end
         # 5. Verify log messages for loading
         log1 = (:info, "Variable assignments found: x, y, z")
         log2 = (:info, r"^Loaded cached values from .+\.")
-        @test_logs log1 log2 (@cache jld2macropath begin
+        @test_logs log1 log2 (@cache path begin
             x = collect(1:3)
             y = 4
             z = "test"
@@ -500,7 +499,7 @@ end
         end)
 
         # 6. Load variables
-        out = @cache jld2macropath begin
+        out = @cache path begin
             x = collect(1:3)
             y = 4
             z = "test"
@@ -515,13 +514,13 @@ end
     end
 end
 
-## Test JLD2 format - in a module
-@testitem "cache with JLD2 in a module" begin
-    module MyJLD2Module
+## Test cache in a module (JLD2)
+@testitem "cache in a module (JLD2)" begin
+    module MyCacheModuleJLD2
     using CacheVariables, Test, DataFrames
 
     mktempdir(@__DIR__; prefix = "temp_") do dirpath
-        modpath = joinpath(dirpath, "jld2modtest.jld2")
+        modpath = joinpath(dirpath, "funcmodtest.jld2")
 
         # 1. Save and check the output
         out = cache(modpath) do
@@ -544,19 +543,16 @@ end
 ## Test error handling for unsupported file extensions
 @testitem "unsupported file extensions" begin
     mktempdir(@__DIR__; prefix = "temp_") do dirpath
+        badpath = joinpath(dirpath, "test.mat")
+
         # Test with function form
-        badpath = joinpath(dirpath, "test.txt")
-        @test_throws ErrorException("Unsupported file extension for $badpath. Only .bson and .jld2 are supported.") cache(
-            badpath,
-        ) do
-            42
+        @test_throws ArgumentError cache(badpath) do
+            return 42
         end
 
         # Test with macro form
-        badpath2 = joinpath(dirpath, "test.mat")
-        @test_throws ErrorException("Unsupported file extension for $badpath2. Only .bson and .jld2 are supported.") @cache badpath2 begin
+        @test_throws ArgumentError @cache badpath begin
             x = 1
-            x
         end
     end
 end

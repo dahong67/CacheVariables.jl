@@ -172,46 +172,50 @@ julia> a, b    # b was overwritten in the first let block but not the second
 
 CacheVariables.jl supports two file formats, determined by the file extension:
 
-- **BSON** (`.bson`): Use [BSON.jl](https://github.com/JuliaIO/BSON.jl) for serialization. This is a lightweight format that works well for most Julia objects.
-- **JLD2** (`.jld2`): Use [JLD2.jl](https://github.com/JuliaIO/JLD2.jl) for serialization. This format provides better support for arbitrary Julia types, including `BigInt` and other types that may not work well with BSON.
+- `.bson`: save using [BSON.jl](https://github.com/JuliaIO/BSON.jl),
+  which is a lightweight format that works well for many Julia objects.
+- `.jld2`: save using [JLD2.jl](https://github.com/JuliaIO/JLD2.jl),
+  which may provide better support for arbitrary Julia types.
 
 Simply change the file extension to switch between formats:
 
 ```julia
 # Using BSON format
 cache("results.bson") do
-    # your computation
+    # cached computations
 end
 
 # Using JLD2 format
 cache("results.jld2") do
-    # your computation
+    # cached computations
 end
 ```
 
-The same applies to the macro form:
+The same works for the macro form:
 
 ```julia
 # Using BSON format
 @cache "results.bson" begin
-    # your code
+    # cached computations
 end
 
 # Using JLD2 format
 @cache "results.jld2" begin
-    # your code
+    # cached computations
 end
 ```
 
-For BSON files, you can pass the `bson_mod` keyword argument to specify the module context for loading:
+The module context for loading BSON files can be set via the `bson_mod` keyword argument:
 
 ```julia
 cache("data.bson"; bson_mod = @__MODULE__) do
-    # your computation
+    # cached computations
 end
 ```
 
-This can be useful when working in modules or in Pluto notebooks (see [BSON.jl documentation](https://github.com/JuliaIO/BSON.jl?tab=readme-ov-file#loading-custom-data-types-within-modules) for more details).
+This may be useful when working in modules or in Pluto notebooks
+(see the [BSON.jl documentation](https://github.com/JuliaIO/BSON.jl?tab=readme-ov-file#loading-custom-data-types-within-modules)
+for more detail).
 
 ## Caching the results of a sweep
 
