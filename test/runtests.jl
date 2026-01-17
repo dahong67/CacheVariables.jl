@@ -268,7 +268,7 @@ end
 
 # Motivated by Pluto and based on test case from:
 # https://github.com/JuliaIO/BSON.jl/issues/25
-@testitem "@cache in a module" begin
+@testitem "@cache/cache in a module" begin
     module MyModule
     using CacheVariables, Test, DataFrames
 
@@ -294,6 +294,25 @@ end
             end
             @test d == DataFrame(; a = 1:10, b = 'a':'j')
             @test out == "final output"
+
+            # 4. Reset the variables and delete the file
+            d = out = nothing
+            rm(modpath)
+
+            # 5. Save and check the output
+            out = cache(modpath; bson_mod = @__MODULE__) do
+                return DataFrame(; a = 1:10, b = 'a':'j')
+            end
+            @test out == DataFrame(; a = 1:10, b = 'a':'j')
+
+            # 6. Reset the output
+            out = nothing
+
+            # 7. Load and check the output
+            out = cache(modpath; bson_mod = @__MODULE__) do
+                return DataFrame(; a = 1:10, b = 'a':'j')
+            end
+            @test out == DataFrame(; a = 1:10, b = 'a':'j')
         end
     end
     end
@@ -376,33 +395,6 @@ end
         return (; x = x, y = y, z = z)
     end
     @test out == (; x = [1, 2, 3], y = 4, z = "test")
-end
-
-@testitem "cache in a module" begin
-    module MyCacheModule
-    using CacheVariables, Test, DataFrames
-
-    mktempdir(@__DIR__; prefix = "temp_") do dirpath
-        @testset "$ext" for ext in ["bson", "jld2"]
-            modpath = joinpath(dirpath, "funcmodtest.$ext")
-
-            # 1. Save and check the output
-            out = cache(modpath; bson_mod = @__MODULE__) do
-                return DataFrame(; a = 1:10, b = 'a':'j')
-            end
-            @test out == DataFrame(; a = 1:10, b = 'a':'j')
-
-            # 2. Reset the output
-            out = nothing
-
-            # 3. Load and check the output
-            out = cache(modpath; bson_mod = @__MODULE__) do
-                return DataFrame(; a = 1:10, b = 'a':'j')
-            end
-            @test out == DataFrame(; a = 1:10, b = 'a':'j')
-        end
-    end
-    end
 end
 
 @testitem "unsupported file extensions" begin
