@@ -6,6 +6,10 @@
 Cache the output of running `f()` in a cache file at `path`.
 The output is loaded if the file exists and is saved otherwise.
 
+The file format is determined by the file extension:
+`.bson` for [BSON.jl](https://github.com/JuliaIO/BSON.jl) and
+`.jld2` for [JLD2.jl](https://github.com/JuliaIO/JLD2.jl).
+
 In addition to the output of `f()`, the following metadata is saved for the run:
 - Julia version
 - Time when run (in UTC)
@@ -71,11 +75,27 @@ function cache(@nospecialize(f), path; overwrite = false, bson_mod = Main)
 
         # Save metadata and output
         mkpath(dirname(path))
-        bson(path; version, whenrun, runtime, output)
+        if endswith(path, ".bson")
+            bson(path; version, whenrun, runtime, output)
+        elseif endswith(path, ".jld2")
+            JLD2.jldsave(path; version, whenrun, runtime, output)
+        else
+            error("Unsupported file extension for $path. Only .bson and .jld2 are supported.")
+        end
         return output
     else
         # Load metadata and output
-        (; version, whenrun, runtime, output) = NamedTuple(BSON.load(path, bson_mod))
+        if endswith(path, ".bson")
+            (; version, whenrun, runtime, output) = NamedTuple(BSON.load(path, bson_mod))
+        elseif endswith(path, ".jld2")
+            data = JLD2.load(path)
+            version = data["version"]
+            whenrun = data["whenrun"]
+            runtime = data["runtime"]
+            output = data["output"]
+        else
+            error("Unsupported file extension for $path. Only .bson and .jld2 are supported.")
+        end
 
         # Log @info message
         @info """

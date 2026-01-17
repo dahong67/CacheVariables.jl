@@ -3,6 +3,7 @@ module CacheVariables
 using BSON
 using Dates: UTC, now
 using ExpressionExplorer: compute_symbols_state
+using JLD2
 using Logging: @info
 using MacroTools: @capture
 
