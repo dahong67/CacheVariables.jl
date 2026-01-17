@@ -219,7 +219,7 @@ This may be useful when working in modules or in Pluto notebooks
 (see the [BSON.jl documentation](https://github.com/JuliaIO/BSON.jl?tab=readme-ov-file#loading-custom-data-types-within-modules)
 for more detail).
 
-## Caching the results of a sweep
+## Example: Caching the results of a sweep
 
 It can be common to need to cache the results of a large sweep (e.g., over parameters or trials of a simulation).
 
@@ -426,6 +426,33 @@ julia> cache(SUBSET === Colon() ? "fullsweep.bson" : nothing) do
  "time-consuming result of run 2"
 ```
 Note that the full cache was not generated here.
+
+## Example: Caching large Makie figures in Pluto notebooks
+
+Plotting a large amount of data can be quite time-consuming!
+The following code shows how a Makie figure can be easily cached
+in the context of a Pluto notebook
+(similar approaches should be possible in other contexts):
+
+```julia
+using CacheVariables, CairoMakie
+cache("fig.bson") do
+    fig = Figure()
+    ax = Axis(fig[1,1])
+    for f in 1:1000
+        lines!(ax, sin.(f.*(0:0.02pi:2pi)))
+    end
+    HTML(repr("text/html", fig))
+end
+```
+
+The first time this code is run, it generates the figure
+(in HTML form since we are in a Pluto notebook)
+and saves the result.
+
+The next time this code is run, it simply
+loads and displays the saved HTML representation,
+which can be much faster!
 
 ## Related packages
 
