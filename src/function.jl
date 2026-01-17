@@ -1,5 +1,12 @@
 # Function form
 
+# Helper function to validate file extensions
+function _validate_extension(path)
+    if !endswith(path, ".bson") && !endswith(path, ".jld2")
+        error("Unsupported file extension for $path. Only .bson and .jld2 are supported.")
+    end
+end
+
 """
     cache(f, path; overwrite=false, bson_mod=Main)
 
@@ -59,9 +66,7 @@ function cache(@nospecialize(f), path; overwrite = false, bson_mod = Main)
         return f()
     elseif !ispath(path) || overwrite
         # Validate file extension early
-        if !endswith(path, ".bson") && !endswith(path, ".jld2")
-            error("Unsupported file extension for $path. Only .bson and .jld2 are supported.")
-        end
+        _validate_extension(path)
 
         # Collect metadata and run function
         version = VERSION
@@ -88,9 +93,7 @@ function cache(@nospecialize(f), path; overwrite = false, bson_mod = Main)
         return output
     else
         # Validate file extension early
-        if !endswith(path, ".bson") && !endswith(path, ".jld2")
-            error("Unsupported file extension for $path. Only .bson and .jld2 are supported.")
-        end
+        _validate_extension(path)
 
         # Load metadata and output
         if endswith(path, ".bson")
