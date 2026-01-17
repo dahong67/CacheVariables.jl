@@ -397,4 +397,168 @@ end
     end
 end
 
+## Test JLD2 format - function form
+@testitem "cache with JLD2 format" begin
+    using JLD2, Dates
+    mktempdir(@__DIR__; prefix = "temp_") do dirpath
+        jld2path = joinpath(dirpath, "jld2test.jld2")
+
+        # 1. Verify log messages for saving
+        log1 = (:info, r"^Saved cached values to .+\.")
+        @test_logs log1 match_mode = :any cache(jld2path) do
+            x = collect(1:3)
+            y = 4
+            z = "test"
+            return (; x = x, y = y, z = z)
+        end
+
+        # 2. Delete cache and run again
+        rm(jld2path)
+        out = cache(jld2path) do
+            x = collect(1:3)
+            y = 4
+            z = "test"
+            return (; x = x, y = y, z = z)
+        end
+
+        # 3. Verify the output
+        @test out == (; x = [1, 2, 3], y = 4, z = "test")
+
+        # 4. Reset the output
+        out = nothing
+
+        # 5. Verify log messages for loading
+        log1 = (:info, r"^Loaded cached values from .+\.")
+        @test_logs log1 match_mode = :any cache(jld2path) do
+            x = collect(1:3)
+            y = 4
+            z = "test"
+            return (; x = x, y = y, z = z)
+        end
+
+        # 6. Load values from cache
+        out = cache(jld2path) do
+            x = collect(1:3)
+            y = 4
+            z = "test"
+            return (; x = x, y = y, z = z)
+        end
+
+        # 7. Verify the output
+        @test out == (; x = [1, 2, 3], y = 4, z = "test")
+
+        # 8. Verify the metadata
+        data = JLD2.load(jld2path)
+        @test data["version"] isa VersionNumber
+        @test data["whenrun"] isa Dates.DateTime
+        @test data["runtime"] isa Real && data["runtime"] >= 0
+    end
+end
+
+## Test JLD2 format - macro form
+@testitem "@cache with JLD2 format" begin
+    using JLD2
+    mktempdir(@__DIR__; prefix = "temp_") do dirpath
+        jld2macropath = joinpath(dirpath, "jld2macro.jld2")
+
+        # 1. Verify log messages for saving
+        log1 = (:info, "Variable assignments found: x, y, z")
+        log2 = (:info, r"^Saved cached values to .+\.")
+        @test_logs log1 log2 (@cache jld2macropath begin
+            x = collect(1:3)
+            y = 4
+            z = "test"
+            "final output"
+        end)
+
+        # 2. Delete cache and run again
+        rm(jld2macropath)
+        out = @cache jld2macropath begin
+            x = collect(1:3)
+            y = 4
+            z = "test"
+            "final output"
+        end
+
+        # 3. Verify that the variables enter the workspace correctly
+        @test x == [1, 2, 3]
+        @test y == 4
+        @test z == "test"
+        @test out == "final output"
+
+        # 4. Reset the variables
+        x = y = z = out = nothing
+
+        # 5. Verify log messages for loading
+        log1 = (:info, "Variable assignments found: x, y, z")
+        log2 = (:info, r"^Loaded cached values from .+\.")
+        @test_logs log1 log2 (@cache jld2macropath begin
+            x = collect(1:3)
+            y = 4
+            z = "test"
+            "final output"
+        end)
+
+        # 6. Load variables
+        out = @cache jld2macropath begin
+            x = collect(1:3)
+            y = 4
+            z = "test"
+            "final output"
+        end
+
+        # 7. Verify that the variables enter the workspace correctly
+        @test x == [1, 2, 3]
+        @test y == 4
+        @test z == "test"
+        @test out == "final output"
+    end
+end
+
+## Test JLD2 format - in a module
+@testitem "cache with JLD2 in a module" begin
+    module MyJLD2Module
+    using CacheVariables, Test, DataFrames
+
+    mktempdir(@__DIR__; prefix = "temp_") do dirpath
+        modpath = joinpath(dirpath, "jld2modtest.jld2")
+
+        # 1. Save and check the output
+        out = cache(modpath) do
+            return DataFrame(; a = 1:10, b = 'a':'j')
+        end
+        @test out == DataFrame(; a = 1:10, b = 'a':'j')
+
+        # 2. Reset the output
+        out = nothing
+
+        # 3. Load and check the output
+        out = cache(modpath) do
+            return DataFrame(; a = 1:10, b = 'a':'j')
+        end
+        @test out == DataFrame(; a = 1:10, b = 'a':'j')
+    end
+    end
+end
+
+## Test error handling for unsupported file extensions
+@testitem "unsupported file extensions" begin
+    mktempdir(@__DIR__; prefix = "temp_") do dirpath
+        # Test with function form
+        badpath = joinpath(dirpath, "test.txt")
+        @test_throws ErrorException("Unsupported file extension for $badpath. Only .bson and .jld2 are supported.") cache(
+            badpath,
+        ) do
+            42
+        end
+
+        # Test with macro form
+        badpath2 = joinpath(dirpath, "test.mat")
+        @test_throws ErrorException("Unsupported file extension for $badpath2. Only .bson and .jld2 are supported.") @cache badpath2 begin
+            x = 1
+            x
+        end
+    end
+end
+
 @run_package_tests

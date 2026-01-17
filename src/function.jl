@@ -58,6 +58,11 @@ function cache(@nospecialize(f), path; overwrite = false, bson_mod = Main)
     if isnothing(path)
         return f()
     elseif !ispath(path) || overwrite
+        # Validate file extension early
+        if !endswith(path, ".bson") && !endswith(path, ".jld2")
+            error("Unsupported file extension for $path. Only .bson and .jld2 are supported.")
+        end
+
         # Collect metadata and run function
         version = VERSION
         whenrun = now(UTC)
@@ -77,24 +82,25 @@ function cache(@nospecialize(f), path; overwrite = false, bson_mod = Main)
         mkpath(dirname(path))
         if endswith(path, ".bson")
             bson(path; version, whenrun, runtime, output)
-        elseif endswith(path, ".jld2")
+        else  # .jld2
             JLD2.jldsave(path; version, whenrun, runtime, output)
-        else
-            error("Unsupported file extension for $path. Only .bson and .jld2 are supported.")
         end
         return output
     else
+        # Validate file extension early
+        if !endswith(path, ".bson") && !endswith(path, ".jld2")
+            error("Unsupported file extension for $path. Only .bson and .jld2 are supported.")
+        end
+
         # Load metadata and output
         if endswith(path, ".bson")
             (; version, whenrun, runtime, output) = NamedTuple(BSON.load(path, bson_mod))
-        elseif endswith(path, ".jld2")
+        else  # .jld2
             data = JLD2.load(path)
             version = data["version"]
             whenrun = data["whenrun"]
             runtime = data["runtime"]
             output = data["output"]
-        else
-            error("Unsupported file extension for $path. Only .bson and .jld2 are supported.")
         end
 
         # Log @info message
