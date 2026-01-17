@@ -87,7 +87,7 @@ function cache(@nospecialize(f), path; overwrite = false, bson_mod = Main)
         mkpath(dirname(path))
         if endswith(path, ".bson")
             bson(path; version, whenrun, runtime, output)
-        else  # .jld2
+        elseif endswith(path, ".jld2")
             JLD2.jldsave(path; version, whenrun, runtime, output)
         end
         return output
@@ -98,7 +98,7 @@ function cache(@nospecialize(f), path; overwrite = false, bson_mod = Main)
         # Load metadata and output
         if endswith(path, ".bson")
             (; version, whenrun, runtime, output) = NamedTuple(BSON.load(path, bson_mod))
-        else  # .jld2
+        elseif endswith(path, ".jld2")
             data = JLD2.load(path)
             version = data["version"]
             whenrun = data["whenrun"]
