@@ -2,7 +2,6 @@ using TestItemRunner
 
 ## Test save and load behavior of @cache macro
 @testitem "@cache save and load" begin
-    using BSON, Dates
     mktempdir(@__DIR__; prefix="temp_") do dirpath
         path = joinpath(dirpath, "test.bson")
 
@@ -143,7 +142,6 @@ end
 
 ## Test behavior of @cache macro with no assigned variables
 @testitem "@cache no assigned variables" begin
-    using BSON, Dates
     mktempdir(@__DIR__; prefix="temp_") do dirpath
         path = joinpath(dirpath, "test-no-vars.bson")
 
@@ -185,7 +183,6 @@ end
 
 ## Test @cache macro on a complicated begin...end block
 @testitem "@cache complicated begin...end block" begin
-    using BSON, Dates
     mktempdir(@__DIR__; prefix="temp_") do dirpath
         path = joinpath(dirpath, "test-complicated.bson")
 
@@ -282,7 +279,7 @@ end
     module MyModule
     using CacheVariables, Test, DataFrames
     
-    function run_test(dirpath)
+    mktempdir(@__DIR__; prefix="temp_") do dirpath
         modpath = joinpath(dirpath, "modtest.bson")
 
         # 1. Save and check that variables entered workspace correctly
@@ -304,10 +301,6 @@ end
         @test d == DataFrame(; a = 1:10, b = 'a':'j')
         @test out == "final output"
     end
-    end
-    
-    mktempdir(@__DIR__; prefix="temp_") do dirpath
-        MyModule.run_test(dirpath)
     end
 end
 
@@ -387,7 +380,7 @@ end
     module MyCacheModule
     using CacheVariables, Test, DataFrames
     
-    function run_test(dirpath)
+    mktempdir(@__DIR__; prefix="temp_") do dirpath
         modpath = joinpath(dirpath, "funcmodtest.bson")
 
         # 1. Save and check the output
@@ -405,10 +398,6 @@ end
         end
         @test out == DataFrame(; a = 1:10, b = 'a':'j')
     end
-    end
-    
-    mktempdir(@__DIR__; prefix="temp_") do dirpath
-        MyCacheModule.run_test(dirpath)
     end
 end
 
