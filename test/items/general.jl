@@ -50,7 +50,7 @@ end
             rm(modpath)
 
             # 5. Save and check the output
-            out = cache(modpath; bson_mod = @__MODULE__) do
+            out = cache(modpath) do
                 return DataFrame(; a = 1:10, b = 'a':'j')
             end
             @test out == DataFrame(; a = 1:10, b = 'a':'j')
@@ -59,7 +59,7 @@ end
             out = nothing
 
             # 7. Load and check the output
-            out = cache(modpath; bson_mod = @__MODULE__) do
+            out = cache(modpath) do
                 return DataFrame(; a = 1:10, b = 'a':'j')
             end
             @test out == DataFrame(; a = 1:10, b = 'a':'j')

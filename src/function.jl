@@ -1,7 +1,7 @@
 # Function form
 
 """
-    cache(f, path; overwrite=false, bson_mod=Main)
+    cache(f, path; overwrite=false)
 
 Cache the output of running `f()` in a cache file at `path`.
 The output is loaded if the file exists and is saved otherwise.
@@ -20,7 +20,6 @@ e.g., to only cache a sweep when the full set is ready.
 
 If `overwrite` is set to true, existing cache files will be overwritten
 with the results (and metadata) from a "fresh" call to `f()`.
-If necessary, the module to use for BSON can be set with `bson_mod`.
 
 Tip: Use a `do...end` block to cache the results of a block of code.
 
@@ -54,7 +53,7 @@ julia> cache(nothing) do
 (a = "a very time-consuming quantity to compute", b = "a very long simulation to run")
 ```
 """
-function cache(@nospecialize(f), path::AbstractString; overwrite = false, bson_mod = Main)
+function cache(@nospecialize(f), path::AbstractString; overwrite = false)
     # Check file extension
     ext = splitext(path)[2]
     (ext == ".bson" || ext == ".jld2") ||
@@ -102,7 +101,7 @@ function cache(@nospecialize(f), path::AbstractString; overwrite = false, bson_m
     else
         # Load metadata and output
         if ext == ".bson"
-            data = BSON.load(path, bson_mod)
+            data = BSON.load(path)
             version = data[:version]
             whenrun = data[:whenrun]
             runtime = data[:runtime]
