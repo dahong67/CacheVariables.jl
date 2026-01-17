@@ -67,6 +67,11 @@ function cache(@nospecialize(f), path::AbstractString; overwrite = false, bson_m
         whenrun = now(UTC)
         runtime = @elapsed output = f()
 
+        # Form main message for @info
+        main_msg =
+            ispath(path) ? "Overwrote $path with cached values." :
+            "Saved cached values to $path."
+
         # Save metadata and output
         mkpath(dirname(path))
         if ext == ".bson"
@@ -87,17 +92,12 @@ function cache(@nospecialize(f), path::AbstractString; overwrite = false, bson_m
             JLD2.save(path, data)
         end
 
-        # Log @info message
-        main_msg =
-            ispath(path) ? "Overwrote $path with cached values." :
-            "Saved cached values to $path."
+        # Emit @info log message and return output
         @info """
         $main_msg
           Run Timestamp : $whenrun UTC (run took $runtime sec)
           Julia Version : $version
         """
-
-        # Return output
         return output
     else
         # Load metadata and output
@@ -115,14 +115,12 @@ function cache(@nospecialize(f), path::AbstractString; overwrite = false, bson_m
             output = data["output"]
         end
 
-        # Log @info message
+        # Emit @info log message and return output
         @info """
         Loaded cached values from $path.
           Run Timestamp : $whenrun UTC (run took $runtime sec)
           Julia Version : $version
         """
-
-        # Return output
         return output
     end
 end
