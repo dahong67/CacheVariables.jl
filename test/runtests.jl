@@ -274,8 +274,6 @@ end
 # Motivated by Pluto and based on test case from:
 # https://github.com/JuliaIO/BSON.jl/issues/25
 @testitem "@cache in a module" begin
-    using DataFrames
-
     module MyModule
     using CacheVariables, Test, DataFrames
 
@@ -375,8 +373,6 @@ end
 
 ## Test cache in a module
 @testitem "cache in a module" begin
-    using DataFrames
-
     module MyCacheModule
     using CacheVariables, Test, DataFrames
 
