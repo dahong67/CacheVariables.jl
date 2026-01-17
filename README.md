@@ -207,18 +207,6 @@ end
 end
 ```
 
-The module context for loading BSON files can be set via the `bson_mod` keyword argument:
-
-```julia
-cache("data.bson"; bson_mod = @__MODULE__) do
-    # cached computations
-end
-```
-
-This may be useful when working in modules or in Pluto notebooks
-(see the [BSON.jl documentation](https://github.com/JuliaIO/BSON.jl?tab=readme-ov-file#loading-custom-data-types-within-modules)
-for more detail).
-
 ## Example: Caching the results of a sweep
 
 It can be common to need to cache the results of a large sweep (e.g., over parameters or trials of a simulation).
