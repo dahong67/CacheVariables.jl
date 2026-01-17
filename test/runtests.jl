@@ -2,7 +2,7 @@ using TestItemRunner
 
 ## Test save and load behavior of @cache macro
 @testitem "@cache save and load" begin
-    mktempdir(@__DIR__; prefix="temp_") do dirpath
+    mktempdir(@__DIR__; prefix = "temp_") do dirpath
         path = joinpath(dirpath, "test.bson")
 
         # 1. Verify log messages for saving
@@ -62,7 +62,7 @@ end
 ## Test overwrite behavior of @cache macro with `keyword = value` form
 @testitem "@cache overwrite = value" begin
     using BSON, Dates
-    mktempdir(@__DIR__; prefix="temp_") do dirpath
+    mktempdir(@__DIR__; prefix = "temp_") do dirpath
         path = joinpath(dirpath, "test-overwrite-value.bson")
 
         # 1. Change file contents
@@ -102,7 +102,7 @@ end
 ## Test overwrite behavior of @cache macro with `keyword` form
 @testitem "@cache overwrite" begin
     using BSON, Dates
-    mktempdir(@__DIR__; prefix="temp_") do dirpath
+    mktempdir(@__DIR__; prefix = "temp_") do dirpath
         path = joinpath(dirpath, "test-overwrite.bson")
 
         # 1. Change file contents
@@ -142,7 +142,7 @@ end
 
 ## Test behavior of @cache macro with no assigned variables
 @testitem "@cache no assigned variables" begin
-    mktempdir(@__DIR__; prefix="temp_") do dirpath
+    mktempdir(@__DIR__; prefix = "temp_") do dirpath
         path = joinpath(dirpath, "test-no-vars.bson")
 
         # 1. Verify log messages for saving
@@ -183,7 +183,7 @@ end
 
 ## Test @cache macro on a complicated begin...end block
 @testitem "@cache complicated begin...end block" begin
-    mktempdir(@__DIR__; prefix="temp_") do dirpath
+    mktempdir(@__DIR__; prefix = "temp_") do dirpath
         path = joinpath(dirpath, "test-complicated.bson")
 
         # 1. Save - run without log check so variables escape properly
@@ -275,11 +275,11 @@ end
 # https://github.com/JuliaIO/BSON.jl/issues/25
 @testitem "@cache in a module" begin
     using DataFrames
-    
+
     module MyModule
     using CacheVariables, Test, DataFrames
-    
-    mktempdir(@__DIR__; prefix="temp_") do dirpath
+
+    mktempdir(@__DIR__; prefix = "temp_") do dirpath
         modpath = joinpath(dirpath, "modtest.bson")
 
         # 1. Save and check that variables entered workspace correctly
@@ -307,7 +307,7 @@ end
 ## Test save and load behavior of cache function
 @testitem "cache save and load" begin
     using BSON, Dates
-    mktempdir(@__DIR__; prefix="temp_") do dirpath
+    mktempdir(@__DIR__; prefix = "temp_") do dirpath
         funcpath = joinpath(dirpath, "functest.bson")
 
         # 1. Verify log messages for saving
@@ -376,11 +376,11 @@ end
 ## Test cache in a module
 @testitem "cache in a module" begin
     using DataFrames
-    
+
     module MyCacheModule
     using CacheVariables, Test, DataFrames
-    
-    mktempdir(@__DIR__; prefix="temp_") do dirpath
+
+    mktempdir(@__DIR__; prefix = "temp_") do dirpath
         modpath = joinpath(dirpath, "funcmodtest.bson")
 
         # 1. Save and check the output
