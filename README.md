@@ -219,7 +219,7 @@ This may be useful when working in modules or in Pluto notebooks
 (see the [BSON.jl documentation](https://github.com/JuliaIO/BSON.jl?tab=readme-ov-file#loading-custom-data-types-within-modules)
 for more detail).
 
-## Caching the results of a sweep
+## Example: Caching the results of a sweep
 
 It can be common to need to cache the results of a large sweep (e.g., over parameters or trials of a simulation).
 
