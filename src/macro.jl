@@ -79,7 +79,7 @@ end
 
 function _cache_block(mod, path, block, kwexprs...)
     # Process keyword arguments
-    kwdict = Dict(:overwrite => false)
+    kwdict = Dict{Symbol,Any}(:overwrite => false)
     for expr in kwexprs
         if @capture(expr, lhs_ = rhs_) && haskey(kwdict, lhs)
             kwdict[lhs] = rhs
