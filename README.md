@@ -168,6 +168,51 @@ julia> a, b    # b was overwritten in the first let block but not the second
 > This should generally work, but may not always catch all the variables - check the list
 > printed out to make sure. The function form `cache` can be used for more control.
 
+## File formats
+
+CacheVariables.jl supports two file formats, determined by the file extension:
+
+- **BSON** (`.bson`): Use [BSON.jl](https://github.com/JuliaIO/BSON.jl) for serialization. This is a lightweight format that works well for most Julia objects.
+- **JLD2** (`.jld2`): Use [JLD2.jl](https://github.com/JuliaIO/JLD2.jl) for serialization. This format provides better support for arbitrary Julia types, including `BigInt` and other types that may not work well with BSON.
+
+Simply change the file extension to switch between formats:
+
+```julia
+# Using BSON format
+cache("results.bson") do
+    # your computation
+end
+
+# Using JLD2 format
+cache("results.jld2") do
+    # your computation
+end
+```
+
+The same applies to the macro form:
+
+```julia
+# Using BSON format
+@cache "results.bson" begin
+    # your code
+end
+
+# Using JLD2 format
+@cache "results.jld2" begin
+    # your code
+end
+```
+
+For BSON files, you can pass the `bson_mod` keyword argument to specify the module context for loading:
+
+```julia
+cache("data.bson"; bson_mod = @__MODULE__) do
+    # your computation
+end
+```
+
+This can be useful when working in modules or in Pluto notebooks (see [BSON.jl documentation](https://github.com/JuliaIO/BSON.jl?tab=readme-ov-file#loading-custom-data-types-within-modules) for more details).
+
 ## Caching the results of a sweep
 
 It can be common to need to cache the results of a large sweep (e.g., over parameters or trials of a simulation).
