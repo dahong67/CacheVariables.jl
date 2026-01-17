@@ -11,9 +11,13 @@ In addition to the output of `f()`, the following metadata is saved for the run:
 - Time when run (in UTC)
 - Runtime of code (in seconds)
 
-If `path` is set to `nothing`, caching is disabled and `f()` is simply run.
+The file extension of `path` determines the file format used:
+`.bson` for [BSON.jl](https://github.com/JuliaIO/BSON.jl) and
+`.jld2` for [JLD2.jl](https://github.com/JuliaIO/JLD2.jl).
+The `path` can also be set to `nothing` to disable caching and simply run `f()`.
 This can be useful for conditionally caching the results,
 e.g., to only cache a sweep when the full set is ready.
+
 If `overwrite` is set to true, existing cache files will be overwritten
 with the results (and metadata) from a "fresh" call to `f()`.
 If necessary, the module to use for BSON can be set with `bson_mod`.
@@ -50,10 +54,14 @@ julia> cache(nothing) do
 (a = "a very time-consuming quantity to compute", b = "a very long simulation to run")
 ```
 """
-function cache(@nospecialize(f), path; overwrite = false, bson_mod = Main)
-    if isnothing(path)
-        return f()
-    elseif !ispath(path) || overwrite
+function cache(@nospecialize(f), path::AbstractString; overwrite = false, bson_mod = Main)
+    # Check file extension
+    ext = splitext(path)[2]
+    (ext == ".bson" || ext == ".jld2") ||
+        throw(ArgumentError("Only `.bson` and `.jld2` files are supported."))
+
+    # Save, overwrite or load
+    if !ispath(path) || overwrite
         # Collect metadata and run function
         version = VERSION
         whenrun = now(UTC)
@@ -71,11 +79,39 @@ function cache(@nospecialize(f), path; overwrite = false, bson_mod = Main)
 
         # Save metadata and output
         mkpath(dirname(path))
-        bson(path; version, whenrun, runtime, output)
+        if ext == ".bson"
+            data = Dict(
+                :version => version,
+                :whenrun => whenrun,
+                :runtime => runtime,
+                :output => output,
+            )
+            BSON.bson(path, data)
+        elseif ext == ".jld2"
+            data = Dict(
+                "version" => version,
+                "whenrun" => whenrun,
+                "runtime" => runtime,
+                "output" => output,
+            )
+            JLD2.save(path, data)
+        end
         return output
     else
         # Load metadata and output
-        (; version, whenrun, runtime, output) = NamedTuple(BSON.load(path, bson_mod))
+        if ext == ".bson"
+            data = BSON.load(path, bson_mod)
+            version = data[:version]
+            whenrun = data[:whenrun]
+            runtime = data[:runtime]
+            output = data[:output]
+        elseif ext == ".jld2"
+            data = JLD2.load(path)
+            version = data["version"]
+            whenrun = data["whenrun"]
+            runtime = data["runtime"]
+            output = data["output"]
+        end
 
         # Log @info message
         @info """
@@ -88,3 +124,4 @@ function cache(@nospecialize(f), path; overwrite = false, bson_mod = Main)
         return output
     end
 end
+cache(@nospecialize(f), ::Nothing; kwargs...) = f()
