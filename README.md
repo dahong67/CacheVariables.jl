@@ -451,40 +451,40 @@ This can be accomplished by capturing the output using `redirect_stdio` and `Log
 using CacheVariables, Logging
 
 cache("simulation-with-output.bson") do
-    # Create temporary files for capturing output
-    stdout_file = tempname()
-    logs_file = tempname()
-    
-    # Run computation with capturing
-    result = open(stdout_file, "w") do stdout_io
-        open(logs_file, "w") do logs_io
-            redirect_stdio(stdout=stdout_io) do
-                with_logger(SimpleLogger(logs_io)) do
-                    println("Starting simulation...")
-                    @info "Running expensive computation"
-                    
-                    # Your expensive computation here
-                    output = sum(1:1000)
-                    
-                    println("Computation finished with result: ", output)
-                    @info "Simulation complete" result=output
-                    
-                    return output
+    # Use mktempdir to ensure cleanup even on errors
+    mktempdir() do tmpdir
+        # Create temporary files for capturing output
+        stdout_file = joinpath(tmpdir, "stdout.txt")
+        logs_file = joinpath(tmpdir, "logs.txt")
+        
+        # Run computation with capturing (file handles automatically closed)
+        result = open(stdout_file, "w") do stdout_io
+            open(logs_file, "w") do logs_io
+                redirect_stdio(stdout=stdout_io) do
+                    with_logger(SimpleLogger(logs_io)) do
+                        println("Starting simulation...")
+                        @info "Running expensive computation"
+                        
+                        # Your expensive computation here
+                        output = sum(1:1000)
+                        
+                        println("Computation finished with result: ", output)
+                        @info "Simulation complete" result=output
+                        
+                        return output
+                    end
                 end
             end
         end
+        
+        # Read captured output (files are closed by now)
+        stdout_content = read(stdout_file, String)
+        logs_content = read(logs_file, String)
+        
+        # Return result along with captured output
+        # (tmpdir and files automatically cleaned up when block exits)
+        return (; result=result, stdout=stdout_content, logs=logs_content)
     end
-    
-    # Read and save captured output
-    stdout_content = read(stdout_file, String)
-    logs_content = read(logs_file, String)
-    
-    # Clean up temporary files
-    rm(stdout_file; force=true)
-    rm(logs_file; force=true)
-    
-    # Return result along with captured output
-    return (; result=result, stdout=stdout_content, logs=logs_content)
 end
 ```
 
