@@ -445,7 +445,14 @@ which can be much faster!
 ## Example: Caching printed output and logs
 
 Sometimes it's useful to also save things printed to stdout/stderr or logged during a computation.
-This can be accomplished by capturing the output using [IOCapture.jl](https://github.com/JuliaDocs/IOCapture.jl) and `Logging.SimpleLogger`:
+This can be accomplished by capturing the output using [IOCapture.jl](https://github.com/JuliaDocs/IOCapture.jl) and `Logging.SimpleLogger`.
+
+First, install IOCapture.jl if you haven't already:
+```julia
+using Pkg; Pkg.add("IOCapture")
+```
+
+Then use it to capture output:
 
 ```julia
 using CacheVariables, Logging, IOCapture
