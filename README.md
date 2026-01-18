@@ -445,46 +445,36 @@ which can be much faster!
 ## Example: Caching printed output and logs
 
 Sometimes it's useful to also save things printed to stdout/stderr or logged during a computation.
-This can be accomplished by capturing the output using `redirect_stdio` and `Logging.SimpleLogger`:
+This can be accomplished by capturing the output using [IOCapture.jl](https://github.com/JuliaDocs/IOCapture.jl) and `Logging.SimpleLogger`:
 
 ```julia
-using CacheVariables, Logging
+using CacheVariables, Logging, IOCapture
 
 cache("simulation-with-output.bson") do
-    # Use mktempdir to ensure cleanup even on errors
-    mktempdir() do tmpdir
-        # Create temporary files for capturing output
-        stdout_file = joinpath(tmpdir, "stdout.txt")
-        logs_file = joinpath(tmpdir, "logs.txt")
-        
-        # Run computation with capturing (file handles automatically closed)
-        result = open(stdout_file, "w") do stdout_io
-            open(logs_file, "w") do logs_io
-                redirect_stdio(stdout=stdout_io) do
-                    with_logger(SimpleLogger(logs_io)) do
-                        println("Starting simulation...")
-                        @info "Running expensive computation"
-                        
-                        # Your expensive computation here
-                        output = sum(1:1000)
-                        
-                        println("Computation finished with result: ", output)
-                        @info "Simulation complete" result=output
-                        
-                        return output
-                    end
-                end
-            end
+    # Create an IOBuffer to capture logs
+    logs_io = IOBuffer()
+    
+    # Use IOCapture to capture stdout/stderr and SimpleLogger for logs
+    captured = IOCapture.capture() do
+        with_logger(SimpleLogger(logs_io)) do
+            println("Starting simulation...")
+            @info "Running expensive computation"
+            
+            # Your expensive computation here
+            output = sum(1:1000)
+            
+            println("Computation finished with result: ", output)
+            @info "Simulation complete" result=output
+            
+            return output
         end
-        
-        # Read captured output (files are closed by now)
-        stdout_content = read(stdout_file, String)
-        logs_content = read(logs_file, String)
-        
-        # Return result along with captured output
-        # (tmpdir and files automatically cleaned up when block exits)
-        return (; result=result, stdout=stdout_content, logs=logs_content)
     end
+    
+    # Extract captured logs from the IOBuffer
+    logs_content = String(take!(logs_io))
+    
+    # Return result along with captured output
+    return (; result=captured.value, stdout=captured.output, logs=logs_content)
 end
 ```
 
@@ -496,6 +486,43 @@ This is particularly useful for:
 - Long-running simulations that produce diagnostic output
 - Debugging cached computations by reviewing what was printed
 - Preserving a complete record of what happened during a computation
+
+**Alternative approaches:**
+
+If you prefer not to use IOCapture.jl, you can use a file-based approach with `redirect_stdio`:
+
+```julia
+using CacheVariables, Logging
+
+cache("simulation-with-output.bson") do
+    mktempdir() do tmpdir
+        stdout_file = joinpath(tmpdir, "stdout.txt")
+        logs_file = joinpath(tmpdir, "logs.txt")
+        
+        result = open(stdout_file, "w") do stdout_io
+            open(logs_file, "w") do logs_io
+                redirect_stdio(stdout=stdout_io) do
+                    with_logger(SimpleLogger(logs_io)) do
+                        println("Starting simulation...")
+                        @info "Running expensive computation"
+                        output = sum(1:1000)
+                        println("Computation finished with result: ", output)
+                        @info "Simulation complete" result=output
+                        return output
+                    end
+                end
+            end
+        end
+        
+        stdout_content = read(stdout_file, String)
+        logs_content = read(logs_file, String)
+        
+        return (; result=result, stdout=stdout_content, logs=logs_content)
+    end
+end
+```
+
+This file-based approach is useful when dealing with very large amounts of output or when you need more control over the capturing process.
 
 ## Related packages
 
