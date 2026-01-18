@@ -442,6 +442,61 @@ The next time this code is run, it simply
 loads and displays the saved HTML representation,
 which can be much faster!
 
+## Example: Caching printed output and logs
+
+Sometimes it's useful to also save things printed to stdout/stderr or logged during a computation.
+This can be accomplished by capturing the output using `redirect_stdio` and `Logging.SimpleLogger`:
+
+```julia
+using CacheVariables, Logging
+
+cache("simulation-with-output.bson") do
+    # Create temporary files for capturing output
+    stdout_file = tempname()
+    logs_file = tempname()
+    
+    # Run computation with capturing
+    result = open(stdout_file, "w") do stdout_io
+        open(logs_file, "w") do logs_io
+            redirect_stdio(stdout=stdout_io) do
+                with_logger(SimpleLogger(logs_io)) do
+                    println("Starting simulation...")
+                    @info "Running expensive computation"
+                    
+                    # Your expensive computation here
+                    output = sum(1:1000)
+                    
+                    println("Computation finished with result: ", output)
+                    @info "Simulation complete" result=output
+                    
+                    return output
+                end
+            end
+        end
+    end
+    
+    # Read and save captured output
+    stdout_content = read(stdout_file, String)
+    logs_content = read(logs_file, String)
+    
+    # Clean up temporary files
+    rm(stdout_file; force=true)
+    rm(logs_file; force=true)
+    
+    # Return result along with captured output
+    return (; result=result, stdout=stdout_content, logs=logs_content)
+end
+```
+
+The first time this runs, it executes the computation and captures all printed output and log messages,
+saving everything to the cache file.
+Subsequent runs simply load the cached result along with the captured output and logs!
+
+This is particularly useful for:
+- Long-running simulations that produce diagnostic output
+- Debugging cached computations by reviewing what was printed
+- Preserving a complete record of what happened during a computation
+
 ## Related packages
 
 - [Memoization.jl](https://github.com/marius311/Memoization.jl)
