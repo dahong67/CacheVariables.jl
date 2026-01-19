@@ -442,6 +442,85 @@ The next time this code is run, it simply
 loads and displays the saved HTML representation,
 which can be much faster!
 
+## Example: Caching log messages
+
+It can sometimes be useful to also save log messages (from `@info`, `@warn`, etc.).
+This can be accomplished by redirecting them to an `IOBuffer` with a `SimpleLogger`:
+
+```julia
+using CacheVariables, Logging
+cache("simulation-with-logs.bson") do
+    logs_io = IOBuffer()
+    result = with_logger(SimpleLogger(logs_io)) do
+        @info "something logged via @info"
+        @warn "something logged via @warn"
+        return "output of the computation"
+    end
+    return (; result=result, logs=String(take!(logs_io)))
+end
+```
+
+## Example: Caching printed output (stdout/stderr)
+
+It can sometimes be useful to also save things printed out to stdout/stderr.
+This can be accomplished by using [IOCapture](https://github.com/JuliaDocs/IOCapture.jl)
+as follows:
+
+```julia
+using CacheVariables, IOCapture
+cache("simulation-with-output.bson") do
+    IOCapture.capture(; color=true, passthrough=true) do
+        println("something printed to stdout")
+        println(stderr, "something printed to stderr")
+        return "output of the computation"
+    end
+end
+```
+
+The `IOCapture.capture` block captures the output with everything printed to stdout/stderr
+and creates a `NamedTuple`. For example, the above block produces:
+
+```julia
+(value = "output of the computation", output = "Something printed to stdout\nSomething printed to stderr\n", error = false, backtrace = Ptr{Nothing}[])
+```
+
+The outer `cache` block then takes care of all the caching!
+
+**Note:** IOCapture has some known limitations. Read their docs to learn more.
+
+### Alternative approaches
+
+Another package offering similar functionality is
+[Suppressor](https://github.com/JuliaIO/Suppressor.jl).
+
+Another approach can be to directly call `redirect_stdio` and use temporary files, like so:
+
+```julia
+cache("simulation-with-output.bson") do
+    mktempdir() do tmpdir
+        stdout_file = joinpath(tmpdir, "stdout.txt")
+        stderr_file = joinpath(tmpdir, "stderr.txt")
+        result = open(stdout_file, "w") do stdout_io
+            open(stderr_file, "w") do stderr_io
+                redirect_stdio(; stdout = stdout_io, stderr = stderr_io) do
+                    println("something printed to stdout")
+                    println(stderr, "something printed to stderr")
+                    return "output of the computation"
+                end
+            end
+        end
+        return (;
+            result = result,
+            stdout = read(stdout_file, String),
+            stderr = read(stderr_file, String),
+        )
+    end
+end
+```
+
+At the time of writing, `redirect_stdio` does not seem to support `IOBuffer`s directly yet:
+https://github.com/JuliaLang/julia/issues/12711
+
 ## Related packages
 
 - [Memoization.jl](https://github.com/marius311/Memoization.jl)
