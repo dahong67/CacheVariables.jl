@@ -442,6 +442,24 @@ The next time this code is run, it simply
 loads and displays the saved HTML representation,
 which can be much faster!
 
+## Example: Caching log messages
+
+It can sometimes be useful to also save log messages (from `@info`, `@warn`, etc.).
+This can be accomplished by redirecting them to an `IOBuffer` with a `SimpleLogger`:
+
+```julia
+using CacheVariables, Logging
+cache("simulation-with-logs.bson") do
+    logs_io = IOBuffer()
+    result = with_logger(SimpleLogger(logs_io)) do
+        @info "something logged via @info"
+        @warn "something logged via @warn"
+        return "output of the computation"
+    end
+    return (; result=result, logs=String(take!(logs_io)))
+end
+```
+
 ## Example: Caching printed output (stdout/stderr)
 
 It can sometimes be useful to also save things printed out to stdout/stderr.
@@ -502,24 +520,6 @@ end
 
 At the time of writing, `redirect_stdio` does not seem to support `IOBuffer`s directly yet:
 https://github.com/JuliaLang/julia/issues/12711
-
-## Example: Caching log messages
-
-It can sometimes be useful to also save log messages (from `@info`, `@warn`, etc.).
-This can be accomplished by redirecting them to an `IOBuffer` with a `SimpleLogger`:
-
-```julia
-using CacheVariables, Logging
-cache("simulation-with-logs.bson") do
-    logs_io = IOBuffer()
-    result = with_logger(SimpleLogger(logs_io)) do
-        @info "something logged via @info"
-        @warn "something logged via @warn"
-        return "output of the computation"
-    end
-    return (; result=result, logs=String(take!(logs_io)))
-end
-```
 
 ## Related packages
 
