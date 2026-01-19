@@ -444,134 +444,80 @@ which can be much faster!
 
 ## Example: Caching printed output (stdout/stderr)
 
-Sometimes it's useful to also save things printed to stdout/stderr during a computation.
-This can be accomplished by capturing the output using [IOCapture.jl](https://github.com/JuliaDocs/IOCapture.jl).
-
-First, install IOCapture.jl if you haven't already:
-```julia
-using Pkg; Pkg.add("IOCapture")
-```
-
-Then use it to capture output:
+It can sometimes be useful to also save things printed out to stdout/stderr.
+This can be accomplished by using [IOCapture](https://github.com/JuliaDocs/IOCapture.jl)
+as follows:
 
 ```julia
 using CacheVariables, IOCapture
-
 cache("simulation-with-output.bson") do
-    # Use IOCapture to capture stdout/stderr
-    captured = IOCapture.capture() do
-        println("Starting simulation...")
-        
-        # Your expensive computation here
-        output = sum(1:1000)
-        
-        println("Computation finished with result: ", output)
-        
-        return output
+    IOCapture.capture(; color=true, passthrough=true) do
+        println("something printed to stdout")
+        println(stderr, "something printed to stderr")
+        return "output of the computation"
     end
-    
-    # Return result along with captured output
-    return (; result=captured.value, output=captured.output)
 end
 ```
 
-The first time this runs, it executes the computation and captures all printed output,
-saving everything to the cache file.
-Subsequent runs simply load the cached result along with the captured output!
-
-This is particularly useful for:
-- Long-running simulations that produce diagnostic output
-- Debugging cached computations by reviewing what was printed
-- Preserving a complete record of what was printed during a computation
-
-**Alternative approach:**
-
-If you prefer not to use IOCapture.jl, you can use a file-based approach with `redirect_stdio`:
+The `IOCapture.capture` block captures the output with everything printed to stdout/stderr
+and creates a `NamedTuple`. For example, the above block produces:
 
 ```julia
-using CacheVariables
+(value = "output of the computation", output = "Something printed to stdout\nSomething printed to stderr\n", error = false, backtrace = Ptr{Nothing}[])
+```
 
+The outer `cache` block then takes care of all the caching!
+
+**Note:** IOCapture has some known limitations. Read their docs to learn more.
+
+### Alternative approaches
+
+Another package offering similar functionality is
+[Suppressor](https://github.com/JuliaIO/Suppressor.jl).
+
+Another approach can be to directly call `redirect_stdio` and use temporary files, like so:
+
+```julia
 cache("simulation-with-output.bson") do
     mktempdir() do tmpdir
         stdout_file = joinpath(tmpdir, "stdout.txt")
-        
+        stderr_file = joinpath(tmpdir, "stderr.txt")
         result = open(stdout_file, "w") do stdout_io
-            redirect_stdio(stdout=stdout_io) do
-                println("Starting simulation...")
-                output = sum(1:1000)
-                println("Computation finished with result: ", output)
-                return output
+            open(stderr_file, "w") do stderr_io
+                redirect_stdio(; stdout = stdout_io, stderr = stderr_io) do
+                    println("something printed to stdout")
+                    println(stderr, "something printed to stderr")
+                    return "output of the computation"
+                end
             end
         end
-        
-        stdout_content = read(stdout_file, String)
-        
-        return (; result=result, output=stdout_content)
+        return (;
+            result = result,
+            stdout = read(stdout_file, String),
+            stderr = read(stderr_file, String),
+        )
     end
 end
 ```
 
-This file-based approach is useful when dealing with very large amounts of output.
+At the time of writing, `redirect_stdio` does not seem to support `IOBuffer`s directly yet:
+https://github.com/JuliaLang/julia/issues/12711
 
 ## Example: Caching log messages
 
-You can also cache log messages (from `@info`, `@warn`, etc.) by redirecting them to an `IOBuffer` with a `SimpleLogger`:
+It can sometimes be useful to also save log messages (from `@info`, `@warn`, etc.).
+This can be accomplished by redirecting them to an `IOBuffer` with a `SimpleLogger`:
 
 ```julia
 using CacheVariables, Logging
-
 cache("simulation-with-logs.bson") do
-    # Create an IOBuffer to capture logs
     logs_io = IOBuffer()
-    
-    # Use SimpleLogger to redirect logs to the IOBuffer
     result = with_logger(SimpleLogger(logs_io)) do
-        @info "Running expensive computation"
-        
-        # Your expensive computation here
-        output = sum(1:1000)
-        
-        @info "Computation complete" result=output
-        
-        return output
+        @info "something logged via @info"
+        @warn "something logged via @warn"
+        return "output of the computation"
     end
-    
-    # Extract captured logs from the IOBuffer
-    logs_content = String(take!(logs_io))
-    
-    # Return result along with captured logs
-    return (; result=result, logs=logs_content)
-end
-```
-
-The first time this runs, it executes the computation and captures all log messages,
-saving everything to the cache file.
-Subsequent runs simply load the cached result along with the captured logs!
-
-**Alternative approach:**
-
-You can also use a file-based approach for logs:
-
-```julia
-using CacheVariables, Logging
-
-cache("simulation-with-logs.bson") do
-    mktempdir() do tmpdir
-        logs_file = joinpath(tmpdir, "logs.txt")
-        
-        result = open(logs_file, "w") do logs_io
-            with_logger(SimpleLogger(logs_io)) do
-                @info "Running expensive computation"
-                output = sum(1:1000)
-                @info "Computation complete" result=output
-                return output
-            end
-        end
-        
-        logs_content = read(logs_file, String)
-        
-        return (; result=result, logs=logs_content)
-    end
+    return (; result=result, logs=String(take!(logs_io)))
 end
 ```
 
