@@ -76,7 +76,7 @@ function cache(@nospecialize(f), path::AbstractString; overwrite = false)
         if ext == ".bson"
             data = Dict(
                 :version => version,
-                :whenrun => whenrun,
+                :whenrun => string(whenrun),
                 :runtime => runtime,
                 :output => output,
             )

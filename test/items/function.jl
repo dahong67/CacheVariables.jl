@@ -54,7 +54,7 @@
             if ext == "bson"
                 data = BSON.load(path)
                 version = data[:version]
-                whenrun = data[:whenrun]
+                whenrun = DateTime(data[:whenrun])
                 runtime = data[:runtime]
             else
                 data = JLD2.load(path)
