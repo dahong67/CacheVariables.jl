@@ -48,6 +48,15 @@
 
             # 7. Verify the output
             @test out == (; x = [1, 2, 3], y = 4, z = "test")
+
+            # 8. Verify log messages for overwriting
+            log = (:info, r"^Overwrote .+ with cached values\.")
+            @test_logs log cache(path; overwrite = true) do
+                x = collect(1:3)
+                y = 4
+                z = "test"
+                return (; x = x, y = y, z = z)
+            end
         end
     end
 end
