@@ -65,7 +65,7 @@ function cache(@nospecialize(f), path; overwrite = false)
             "Saved cached values to $path."
         elseif status === :loaded
             "Loaded cached values from $path."
-        elseif :overwrote
+        elseif status === :overwrote
             "Overwrote $path with cached values."
         end
         @info """
