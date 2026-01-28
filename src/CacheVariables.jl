@@ -2,7 +2,7 @@ module CacheVariables
 
 # Imports
 using BSON: BSON
-using Dates: UTC, now, DateTime
+using Dates: DateTime, UTC, now
 using ExpressionExplorer: compute_symbols_state
 using JLD2: JLD2
 using Logging: @info
