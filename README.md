@@ -63,9 +63,9 @@ julia> cache(nothing) do
 ```
 This can be useful for conditionally saving a cache (see [Using pattern 3 on a cluster](#using-pattern-3-on-a-cluster) below).
 
-To suppress log messages, set `verbose=false`:
+To suppress log messages, set `verbose = false`:
 ```julia
-julia> cache("test.bson"; verbose=false) do
+julia> cache("test.bson"; verbose = false) do
            a = "a very time-consuming quantity to compute"
            b = "a very long simulation to run"
            return (; a = a, b = b)
