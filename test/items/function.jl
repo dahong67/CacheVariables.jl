@@ -160,7 +160,7 @@ end
         z = "test"
         return (; x = x, y = y, z = z)
     end
-    
+
     # Verify the result structure and value
     @test result isa NamedTuple
     @test haskey(result, :value)
@@ -171,4 +171,36 @@ end
     @test result.version isa VersionNumber
     @test result.whenrun isa Dates.DateTime
     @test result.runtime isa Real && result.runtime >= 0
+end
+
+@testitem "cached with overwrite" begin
+    using CacheVariables, BSON, JLD2, Dates
+    mktempdir(@__DIR__; prefix = "temp_") do dirpath
+        @testset "$ext" for ext in ["bson", "jld2"]
+            path = joinpath(dirpath, "cachedoverwrite.$ext")
+
+            # 1. Save initial cache
+            result1 = cached(path) do
+                return "first value"
+            end
+            first_whenrun = result1.whenrun
+
+            # 2. Sleep to ensure timestamp difference
+            sleep(0.1)
+
+            # 3. Verify log message for overwrite
+            log = (:info, r"^Overwrote .+ with cached values\.")
+            @test_logs log cached(path; overwrite=true) do
+                return "second value"
+            end
+
+            # 4. Overwrite and verify new value
+            result2 = cached(path; overwrite=true) do
+                return "second value"
+            end
+
+            @test result2.value == "second value"
+            @test result2.whenrun > first_whenrun  # timestamp should be newer
+        end
+    end
 end
