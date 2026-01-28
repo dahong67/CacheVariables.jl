@@ -1,7 +1,7 @@
 # Function form
 
 """
-    cache(f, path; overwrite=false)
+    cache(f, path; overwrite=false, verbose=true)
 
 Cache the output of running `f()` in a cache file at `path`.
 The output is loaded if the file exists and is saved otherwise.
@@ -20,6 +20,8 @@ e.g., to only cache a sweep when the full set is ready.
 
 If `overwrite` is set to true, existing cache files will be overwritten
 with the results (and metadata) from a "fresh" call to `f()`.
+
+If `verbose` is set to false, log messages will be suppressed.
 
 Tip: Use a `do...end` block to cache the results of a block of code.
 

@@ -63,6 +63,16 @@ julia> cache(nothing) do
 ```
 This can be useful for conditionally saving a cache (see [Using pattern 3 on a cluster](#using-pattern-3-on-a-cluster) below).
 
+To suppress log messages, set `verbose=false`:
+```julia
+julia> cache("test.bson"; verbose=false) do
+           a = "a very time-consuming quantity to compute"
+           b = "a very long simulation to run"
+           return (; a = a, b = b)
+       end
+(a = "a very time-consuming quantity to compute", b = "a very long simulation to run")
+```
+
 If you wish to access the metadata, we also provide a `cached` function
 that returns a `NamedTuple` containing the metadata along with the value.
 ```julia
