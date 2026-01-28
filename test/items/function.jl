@@ -85,17 +85,7 @@ end
         @testset "$ext" for ext in ["bson", "jld2"]
             path = joinpath(dirpath, "cachedtest.$ext")
 
-            # 1. Verify log messages for saving
-            log = (:info, r"^Saved cached values to .+\.")
-            @test_logs log cached(path) do
-                x = collect(1:3)
-                y = 4
-                z = "test"
-                return (; x = x, y = y, z = z)
-            end
-
-            # 2. Delete cache and run again
-            rm(path)
+            # 1. Save and verify result
             result = cached(path) do
                 x = collect(1:3)
                 y = 4
@@ -103,7 +93,7 @@ end
                 return (; x = x, y = y, z = z)
             end
 
-            # 3. Verify the result structure and value
+            # 2. Verify the result structure and value
             @test result isa NamedTuple
             @test haskey(result, :value)
             @test haskey(result, :version)
@@ -114,16 +104,7 @@ end
             @test result.whenrun isa Dates.DateTime
             @test result.runtime isa Real && result.runtime >= 0
 
-            # 4. Verify log messages for loading
-            log = (:info, r"^Loaded cached values from .+\.")
-            @test_logs log cached(path) do
-                x = collect(1:3)
-                y = 4
-                z = "test"
-                return (; x = x, y = y, z = z)
-            end
-
-            # 5. Load and verify the loaded result
+            # 3. Load and verify the loaded result
             result = cached(path) do
                 x = collect(1:3)
                 y = 4
@@ -136,7 +117,7 @@ end
             @test result.whenrun isa Dates.DateTime
             @test result.runtime isa Real && result.runtime >= 0
 
-            # 6. Verify metadata matches what's in the file
+            # 4. Verify metadata matches what's in the file
             if ext == "bson"
                 data = BSON.load(path)
                 @test result.version == data[:version]
@@ -188,13 +169,7 @@ end
             # 2. Sleep to ensure timestamp difference
             sleep(0.1)
 
-            # 3. Verify log message for overwrite
-            log = (:info, r"^Overwrote .+ with cached values\.")
-            @test_logs log cached(path; overwrite=true) do
-                return "second value"
-            end
-
-            # 4. Overwrite and verify new value
+            # 3. Overwrite and verify new value
             result2 = cached(path; overwrite=true) do
                 return "second value"
             end

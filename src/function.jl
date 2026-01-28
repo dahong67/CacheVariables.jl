@@ -54,74 +54,29 @@ julia> cache(nothing) do
 ```
 """
 function cache(@nospecialize(f), path::AbstractString; overwrite = false)
-    # Check file extension
-    ext = splitext(path)[2]
-    (ext == ".bson" || ext == ".jld2") ||
-        throw(ArgumentError("Only `.bson` and `.jld2` files are supported."))
-
-    # Save, overwrite or load
-    if !ispath(path) || overwrite
-        # Collect metadata and run function
-        version = VERSION
-        whenrun = now(UTC)
-        runtime = @elapsed output = f()
-
-        # Form main message for @info
-        main_msg =
-            ispath(path) ? "Overwrote $path with cached values." :
-            "Saved cached values to $path."
-
-        # Save metadata and output
-        mkpath(dirname(path))
-        if ext == ".bson"
-            data = Dict(
-                :version => version,
-                :whenrun => string(whenrun),
-                :runtime => runtime,
-                :output => output,
-            )
-            BSON.bson(path, data)
-        elseif ext == ".jld2"
-            data = Dict(
-                "version" => version,
-                "whenrun" => whenrun,
-                "runtime" => runtime,
-                "output" => output,
-            )
-            JLD2.save(path, data)
-        end
-
-        # Emit @info log message and return output
-        @info """
-        $main_msg
-          Run Timestamp : $whenrun UTC (run took $runtime sec)
-          Julia Version : $version
-        """
-        return output
+    # Determine whether we're saving or loading
+    is_loading = ispath(path) && !overwrite
+    
+    # Call cached to do the actual work
+    result = cached(f, path; overwrite = overwrite)
+    
+    # Form main message for @info
+    main_msg = if is_loading
+        "Loaded cached values from $path."
+    elseif ispath(path)
+        "Overwrote $path with cached values."
     else
-        # Load metadata and output
-        if ext == ".bson"
-            data = BSON.load(path)
-            version = data[:version]
-            whenrun = data[:whenrun]
-            runtime = data[:runtime]
-            output = data[:output]
-        elseif ext == ".jld2"
-            data = JLD2.load(path)
-            version = data["version"]
-            whenrun = data["whenrun"]
-            runtime = data["runtime"]
-            output = data["output"]
-        end
-
-        # Emit @info log message and return output
-        @info """
-        Loaded cached values from $path.
-          Run Timestamp : $whenrun UTC (run took $runtime sec)
-          Julia Version : $version
-        """
-        return output
+        "Saved cached values to $path."
     end
+    
+    # Emit @info log message
+    @info """
+    $main_msg
+      Run Timestamp : $(result.whenrun) UTC (run took $(result.runtime) sec)
+      Julia Version : $(result.version)
+    """
+    
+    return result.value
 end
 cache(@nospecialize(f), ::Nothing; kwargs...) = f()
 
@@ -160,9 +115,6 @@ julia> result = cached("test.bson") do
            b = "a very long simulation to run"
            return (; a = a, b = b)
        end
-┌ Info: Saved cached values to test.bson.
-│   Run Timestamp : 2024-01-01T00:00:00.000 UTC (run took 0.123 sec)
-└   Julia Version : 1.11.8
 (value = (a = "a very time-consuming quantity to compute", b = "a very long simulation to run"), version = v"1.11.8", whenrun = 2024-01-01T00:00:00.000, runtime = 0.123)
 
 julia> result.value
@@ -188,11 +140,6 @@ function cached(@nospecialize(f), path::AbstractString; overwrite = false)
         whenrun = now(UTC)
         runtime = @elapsed output = f()
 
-        # Form main message for @info
-        main_msg =
-            ispath(path) ? "Overwrote $path with cached values." :
-            "Saved cached values to $path."
-
         # Save metadata and output
         mkpath(dirname(path))
         if ext == ".bson"
@@ -213,12 +160,6 @@ function cached(@nospecialize(f), path::AbstractString; overwrite = false)
             JLD2.save(path, data)
         end
 
-        # Emit @info log message and return output with metadata
-        @info """
-        $main_msg
-          Run Timestamp : $whenrun UTC (run took $runtime sec)
-          Julia Version : $version
-        """
         return (; value = output, version = version, whenrun = whenrun, runtime = runtime)
     else
         # Load metadata and output
@@ -236,12 +177,6 @@ function cached(@nospecialize(f), path::AbstractString; overwrite = false)
             output = data["output"]
         end
 
-        # Emit @info log message and return output with metadata
-        @info """
-        Loaded cached values from $path.
-          Run Timestamp : $whenrun UTC (run took $runtime sec)
-          Julia Version : $version
-        """
         return (; value = output, version = version, whenrun = whenrun, runtime = runtime)
     end
 end
