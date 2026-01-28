@@ -63,6 +63,24 @@ julia> cache(nothing) do
 ```
 This can be useful for conditionally saving a cache (see [Using pattern 3 on a cluster](#using-pattern-3-on-a-cluster) below).
 
+If you wish to access the metadata, we also provide a `cached` function
+that returns a `NamedTuple` containing the metadata along with the value.
+```julia
+julia> result = cached("test.bson") do
+           a = "a very time-consuming quantity to compute"
+           b = "a very long simulation to run"
+           return (; a = a, b = b)
+       end
+(value = (a = "a very time-consuming quantity to compute", b = "a very long simulation to run"), version = v"1.11.8", whenrun = Dates.DateTime("2024-01-01T00:00:00.000"), runtime = 0.123, status = :saved)
+
+julia> result.value
+(a = "a very time-consuming quantity to compute", b = "a very long simulation to run")
+
+julia> result.runtime
+0.123
+```
+This can be useful, e.g., if you need to aggregate metadata from multiple cache operations.
+
 ## Macro form
 
 The macro form automatically caches the variables defined in a `begin...end` block.

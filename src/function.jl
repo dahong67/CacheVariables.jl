@@ -23,6 +23,8 @@ with the results (and metadata) from a "fresh" call to `f()`.
 
 Tip: Use a `do...end` block to cache the results of a block of code.
 
+See also: [`cached`](@ref)
+
 # Examples
 ```julia-repl
 julia> cache("test.bson") do
@@ -53,7 +55,87 @@ julia> cache(nothing) do
 (a = "a very time-consuming quantity to compute", b = "a very long simulation to run")
 ```
 """
-function cache(@nospecialize(f), path::AbstractString; overwrite = false)
+function cache(@nospecialize(f), path; overwrite = false)
+    # Call cached
+    (; value, version, whenrun, runtime, status) = cached(f, path; overwrite)
+
+    # Emit log message
+    if status !== :disabled
+        logmsg = if status === :saved
+            "Saved cached values to $path."
+        elseif status === :loaded
+            "Loaded cached values from $path."
+        elseif status === :overwrote
+            "Overwrote $path with cached values."
+        end
+        @info """
+        $logmsg
+          Run Timestamp : $whenrun UTC (run took $runtime sec)
+          Julia Version : $version
+        """
+    end
+
+    # Return output
+    return value
+end
+
+"""
+    cached(f, path; overwrite=false)
+
+Cache the output of running `f()` in a cache file at `path`
+and return the output and metadata as a `NamedTuple`.
+The output and metadata are loaded if the file exists and are saved otherwise.
+
+The returned `NamedTuple` has the following fields:
+- `value`   : the output of running `f()`.
+- `version` : the Julia version used when the code was run.
+- `whenrun` : the timestamp when the code was run (in UTC).
+- `runtime` : the runtime of the code (in seconds).
+- `status`  : status flag indicating if the results were saved / loaded / etc.
+              (possible values are `:saved`, `:loaded`, `:overwrote`, `:disabled`)
+
+The file extension of `path` determines the file format used:
+`.bson` for [BSON.jl](https://github.com/JuliaIO/BSON.jl) and
+`.jld2` for [JLD2.jl](https://github.com/JuliaIO/JLD2.jl).
+The `path` can also be set to `nothing` to disable caching and simply run `f()`.
+This can be useful for conditionally caching the results,
+e.g., to only cache a sweep when the full set is ready.
+
+If `overwrite` is set to true, existing cache files will be overwritten
+with the results (and metadata) from a "fresh" call to `f()`.
+
+Tip: Use a `do...end` block to cache the results of a block of code.
+
+See also: [`cache`](@ref)
+
+# Examples
+```julia-repl
+julia> result = cached("test.bson") do
+           return "output"
+       end
+(value = "output", \
+version = v"1.11.8", \
+whenrun = Dates.DateTime("2024-01-01T00:00:00.000"), \
+runtime = 0.123, \
+status = :saved)
+
+julia> result.value
+"output"
+
+julia> result.version
+v"1.11.8"
+
+julia> result.whenrun
+2024-01-01T00:00:00.000
+
+julia> result.runtime
+0.123
+
+julia> result.status
+:saved
+```
+"""
+function cached(@nospecialize(f), path::AbstractString; overwrite = false)
     # Check file extension
     ext = splitext(path)[2]
     (ext == ".bson" || ext == ".jld2") ||
@@ -65,11 +147,7 @@ function cache(@nospecialize(f), path::AbstractString; overwrite = false)
         version = VERSION
         whenrun = now(UTC)
         runtime = @elapsed output = f()
-
-        # Form main message for @info
-        main_msg =
-            ispath(path) ? "Overwrote $path with cached values." :
-            "Saved cached values to $path."
+        status  = ispath(path) ? :overwrote : :saved
 
         # Save metadata and output
         mkpath(dirname(path))
@@ -91,19 +169,14 @@ function cache(@nospecialize(f), path::AbstractString; overwrite = false)
             JLD2.save(path, data)
         end
 
-        # Emit @info log message and return output
-        @info """
-        $main_msg
-          Run Timestamp : $whenrun UTC (run took $runtime sec)
-          Julia Version : $version
-        """
-        return output
+        return (; value = output, version, whenrun, runtime, status)
     else
         # Load metadata and output
+        status = :loaded
         if ext == ".bson"
             data = BSON.load(path)
             version = data[:version]
-            whenrun = data[:whenrun]
+            whenrun = DateTime(data[:whenrun])
             runtime = data[:runtime]
             output = data[:output]
         elseif ext == ".jld2"
@@ -114,13 +187,13 @@ function cache(@nospecialize(f), path::AbstractString; overwrite = false)
             output = data["output"]
         end
 
-        # Emit @info log message and return output
-        @info """
-        Loaded cached values from $path.
-          Run Timestamp : $whenrun UTC (run took $runtime sec)
-          Julia Version : $version
-        """
-        return output
+        return (; value = output, version, whenrun, runtime, status)
     end
 end
-cache(@nospecialize(f), ::Nothing; kwargs...) = f()
+function cached(@nospecialize(f), ::Nothing; kwargs...)
+    version = VERSION
+    whenrun = now(UTC)
+    runtime = @elapsed output = f()
+    status  = :disabled
+    return (; value = output, version, whenrun, runtime, status)
+end
