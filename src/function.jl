@@ -190,7 +190,10 @@ function cached(@nospecialize(f), path::AbstractString; overwrite = false)
         return (; value = output, version, whenrun, runtime, status)
     end
 end
-cached(@nospecialize(f), ::Nothing; kwargs...) = begin
+function cached(@nospecialize(f), ::Nothing; kwargs...)
+    version = VERSION
+    whenrun = now(UTC)
     runtime = @elapsed output = f()
-    return (; value = output, version = VERSION, whenrun = now(UTC), runtime = runtime, status = :disabled)
+    status  = :disabled
+    return (; value = output, version, whenrun, runtime, status)
 end
