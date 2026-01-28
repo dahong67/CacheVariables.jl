@@ -169,7 +169,7 @@ function cached(@nospecialize(f), path::AbstractString; overwrite = false)
             JLD2.save(path, data)
         end
 
-        return (; value = output, version = version, whenrun = whenrun, runtime = runtime, status = status)
+        return (; value = output, version, whenrun, runtime, status)
     else
         # Load metadata and output
         status = :loaded
@@ -187,7 +187,7 @@ function cached(@nospecialize(f), path::AbstractString; overwrite = false)
             output = data["output"]
         end
 
-        return (; value = output, version = version, whenrun = whenrun, runtime = runtime, status = status)
+        return (; value = output, version, whenrun, runtime, status)
     end
 end
 cached(@nospecialize(f), ::Nothing; kwargs...) = begin
