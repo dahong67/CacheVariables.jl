@@ -141,7 +141,7 @@ end
             path = joinpath(dirpath, "cachedoverwrite.$ext")
 
             # 1. Save initial cache
-            result1 = cached(path; overwrite=true) do
+            result1 = cached(path; overwrite = true) do
                 return "first value"
             end
 
@@ -149,7 +149,7 @@ end
             sleep(0.1)
 
             # 3. Overwrite the cache with different value
-            result2 = cached(path; overwrite=true) do
+            result2 = cached(path; overwrite = true) do
                 return "second value"
             end
 
