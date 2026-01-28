@@ -2,7 +2,7 @@
 
 [![version](https://juliahub.com/docs/General/CacheVariables/stable/version.svg)](https://juliahub.com/ui/Packages/General/CacheVariables)
 [![Project Status: Active – The project has reached a stable, usable state and is being actively developed.](https://www.repostatus.org/badges/latest/active.svg)](https://www.repostatus.org/#active)
-[![CI](https://github.com/dahong67/CacheVariables.jl/actions/workflows/CI.yml/badge.svg)](https://github.com/dahong67/CacheVariables.jl/actions/workflows/CI.yml)
+[![Build Status](https://github.com/dahong67/CacheVariables.jl/actions/workflows/CI.yml/badge.svg)](https://github.com/dahong67/CacheVariables.jl/actions/workflows/CI.yml)
 [![Coverage](https://codecov.io/gh/dahong67/CacheVariables.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/dahong67/CacheVariables.jl)
 
 A lightweight way to save outputs from (expensive) computations.
