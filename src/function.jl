@@ -1,7 +1,7 @@
 # Function form
 
 """
-    cache(f, path; overwrite=false)
+    cache(f, path; overwrite=false, verbose=true)
 
 Cache the output of running `f()` in a cache file at `path`.
 The output is loaded if the file exists and is saved otherwise.
@@ -20,6 +20,8 @@ e.g., to only cache a sweep when the full set is ready.
 
 If `overwrite` is set to true, existing cache files will be overwritten
 with the results (and metadata) from a "fresh" call to `f()`.
+
+If `verbose` is set to false, log messages will be suppressed.
 
 Tip: Use a `do...end` block to cache the results of a block of code.
 
@@ -55,12 +57,12 @@ julia> cache(nothing) do
 (a = "a very time-consuming quantity to compute", b = "a very long simulation to run")
 ```
 """
-function cache(@nospecialize(f), path; overwrite = false)
+function cache(@nospecialize(f), path; overwrite = false, verbose = true)
     # Call cached
     (; value, version, whenrun, runtime, status) = cached(f, path; overwrite)
 
     # Emit log message
-    if status !== :disabled
+    if verbose && status !== :disabled
         logmsg = if status === :saved
             "Saved cached values to $path."
         elseif status === :loaded

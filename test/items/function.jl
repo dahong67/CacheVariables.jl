@@ -61,6 +61,41 @@
     end
 end
 
+@testitem "cache with verbose=false" begin
+    mktempdir(@__DIR__; prefix = "temp_") do dirpath
+        @testset "$ext" for ext in ["bson", "jld2"]
+            path = joinpath(dirpath, "verbosetest.$ext")
+
+            # 1. Verify no log messages when saving with verbose=false
+            out = @test_logs cache(path; verbose = false) do
+                x = collect(1:3)
+                y = 4
+                z = "test"
+                return (; x = x, y = y, z = z)
+            end
+            @test out == (; x = [1, 2, 3], y = 4, z = "test")
+
+            # 2. Verify no log messages when loading with verbose=false
+            out = @test_logs cache(path; verbose = false) do
+                x = collect(1:3)
+                y = 4
+                z = "test"
+                return (; x = x, y = y, z = z)
+            end
+            @test out == (; x = [1, 2, 3], y = 4, z = "test")
+
+            # 3. Verify no log messages when overwriting with verbose=false
+            out = @test_logs cache(path; overwrite = true, verbose = false) do
+                x = collect(1:3)
+                y = 4
+                z = "test"
+                return (; x = x, y = y, z = z)
+            end
+            @test out == (; x = [1, 2, 3], y = 4, z = "test")
+        end
+    end
+end
+
 @testitem "cache with path == nothing" begin
     out = @test_logs cache(nothing) do
         x = collect(1:3)
