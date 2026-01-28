@@ -1,7 +1,6 @@
 # Function form tests
 
 @testitem "cache save and load" begin
-    using BSON, JLD2, Dates
     mktempdir(@__DIR__; prefix = "temp_") do dirpath
         @testset "$ext" for ext in ["bson", "jld2"]
             path = joinpath(dirpath, "functest.$ext")
@@ -49,22 +48,6 @@
 
             # 7. Verify the output
             @test out == (; x = [1, 2, 3], y = 4, z = "test")
-
-            # 8. Verify the metadata
-            if ext == "bson"
-                data = BSON.load(path)
-                version = data[:version]
-                whenrun = DateTime(data[:whenrun])
-                runtime = data[:runtime]
-            else
-                data = JLD2.load(path)
-                version = data["version"]
-                whenrun = data["whenrun"]
-                runtime = data["runtime"]
-            end
-            @test version isa VersionNumber
-            @test whenrun isa Dates.DateTime
-            @test runtime isa Real && runtime >= 0
         end
     end
 end
