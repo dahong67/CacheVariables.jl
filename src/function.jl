@@ -23,6 +23,8 @@ with the results (and metadata) from a "fresh" call to `f()`.
 
 Tip: Use a `do...end` block to cache the results of a block of code.
 
+See also: [`cached`](@ref)
+
 # Examples
 ```julia-repl
 julia> cache("test.bson") do
@@ -83,45 +85,49 @@ cache(@nospecialize(f), ::Nothing; kwargs...) = f()
 """
     cached(f, path; overwrite=false)
 
-Cache the output of running `f()` in a cache file at `path` and return both
-the output and metadata as a `NamedTuple`, analogous to `@timed`.
+Cache the output of running `f()` in a cache file at `path`
+and return the output and metadata as a `NamedTuple`.
+The output and metadata are loaded if the file exists and are saved otherwise.
 
 The returned `NamedTuple` has the following fields:
-- `value`: The output of running `f()`.
-- `version`: The Julia version used when the code was run.
-- `whenrun`: The timestamp when the code was run (in UTC).
-- `runtime`: The runtime of the code (in seconds).
+- `value`   : the output of running `f()`.
+- `version` : the Julia version used when the code was run.
+- `whenrun` : the timestamp when the code was run (in UTC).
+- `runtime` : the runtime of the code (in seconds).
 
-This function behaves identically to [`cache`](@ref) but returns the metadata
-along with the value. This can be useful for unit testing (to check what's been
-saved without reading the cache files) or for accumulating metadata from
-multiple cache operations.
 
 The file extension of `path` determines the file format used:
 `.bson` for [BSON.jl](https://github.com/JuliaIO/BSON.jl) and
 `.jld2` for [JLD2.jl](https://github.com/JuliaIO/JLD2.jl).
 The `path` can also be set to `nothing` to disable caching and simply run `f()`.
-This can be useful for conditionally caching the results.
+This can be useful for conditionally caching the results,
+e.g., to only cache a sweep when the full set is ready.
 
 If `overwrite` is set to true, existing cache files will be overwritten
 with the results (and metadata) from a "fresh" call to `f()`.
+
+Tip: Use a `do...end` block to cache the results of a block of code.
 
 See also: [`cache`](@ref)
 
 # Examples
 ```julia-repl
 julia> result = cached("test.bson") do
-           a = "a very time-consuming quantity to compute"
-           b = "a very long simulation to run"
-           return (; a = a, b = b)
+           return "output"
        end
-(value = (a = "a very time-consuming quantity to compute", b = "a very long simulation to run"), version = v"1.11.8", whenrun = 2024-01-01T00:00:00.000, runtime = 0.123)
+(value = "output", \
+version = v"1.11.8", \
+whenrun = Dates.DateTime("2024-01-01T00:00:00.000"), \
+runtime = 0.123)
 
 julia> result.value
-(a = "a very time-consuming quantity to compute", b = "a very long simulation to run")
+"output"
 
 julia> result.version
 v"1.11.8"
+
+julia> result.whenrun
+2024-01-01T00:00:00.000
 
 julia> result.runtime
 0.123
