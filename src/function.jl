@@ -91,8 +91,8 @@ The returned `NamedTuple` has the following fields:
 - `version` : the Julia version used when the code was run.
 - `whenrun` : the timestamp when the code was run (in UTC).
 - `runtime` : the runtime of the code (in seconds).
-- `status`  : status flag indicating if the results were saved or loaded
-              (possible values are :saved, :overwrote, :loaded, :disabled)
+- `status`  : status flag indicating if the results were saved / loaded / etc.
+              (possible values are `:saved`, `:loaded`, `:overwrote`, `:disabled`)
 
 The file extension of `path` determines the file format used:
 `.bson` for [BSON.jl](https://github.com/JuliaIO/BSON.jl) and
