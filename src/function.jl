@@ -55,12 +55,12 @@ julia> cache(nothing) do
 (a = "a very time-consuming quantity to compute", b = "a very long simulation to run")
 ```
 """
-function cache(@nospecialize(f), path; overwrite = false)
+function cache(@nospecialize(f), path; overwrite = false, verbose = true)
     # Call cached
     (; value, version, whenrun, runtime, status) = cached(f, path; overwrite)
 
     # Emit log message
-    if status !== :disabled
+    if verbose && status !== :disabled
         logmsg = if status === :saved
             "Saved cached values to $path."
         elseif status === :loaded
