@@ -9,7 +9,7 @@ using Logging: @info
 using MacroTools: @capture
 
 # Exports
-export @cache, cache
+export @cache, cache, cached
 
 # Includes
 include("function.jl")
