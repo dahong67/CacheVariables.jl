@@ -80,21 +80,30 @@ end
 end
 
 @testitem "cached save and load" begin
-    using BSON, JLD2, Dates
+    using CacheVariables, BSON, JLD2, Dates
     mktempdir(@__DIR__; prefix = "temp_") do dirpath
         @testset "$ext" for ext in ["bson", "jld2"]
             path = joinpath(dirpath, "cachedtest.$ext")
 
-            # 1. Verify log messages for saving and returned metadata
+            # 1. Verify log messages for saving
             log = (:info, r"^Saved cached values to .+\.")
-            result = @test_logs log cached(path) do
+            @test_logs log cached(path) do
                 x = collect(1:3)
                 y = 4
                 z = "test"
                 return (; x = x, y = y, z = z)
             end
 
-            # 2. Verify the result structure and value
+            # 2. Delete cache and run again
+            rm(path)
+            result = cached(path) do
+                x = collect(1:3)
+                y = 4
+                z = "test"
+                return (; x = x, y = y, z = z)
+            end
+
+            # 3. Verify the result structure and value
             @test result isa NamedTuple
             @test haskey(result, :value)
             @test haskey(result, :version)
@@ -105,8 +114,16 @@ end
             @test result.whenrun isa Dates.DateTime
             @test result.runtime isa Real && result.runtime >= 0
 
-            # 3. Delete cache and run again
-            rm(path)
+            # 4. Verify log messages for loading
+            log = (:info, r"^Loaded cached values from .+\.")
+            @test_logs log cached(path) do
+                x = collect(1:3)
+                y = 4
+                z = "test"
+                return (; x = x, y = y, z = z)
+            end
+
+            # 5. Load and verify the loaded result
             result = cached(path) do
                 x = collect(1:3)
                 y = 4
@@ -114,25 +131,12 @@ end
                 return (; x = x, y = y, z = z)
             end
 
-            # 4. Verify the result again
-            @test result.value == (; x = [1, 2, 3], y = 4, z = "test")
-
-            # 5. Verify log messages for loading and returned metadata
-            log = (:info, r"^Loaded cached values from .+\.")
-            result = @test_logs log cached(path) do
-                x = collect(1:3)
-                y = 4
-                z = "test"
-                return (; x = x, y = y, z = z)
-            end
-
-            # 6. Verify the loaded result
             @test result.value == (; x = [1, 2, 3], y = 4, z = "test")
             @test result.version isa VersionNumber
             @test result.whenrun isa Dates.DateTime
             @test result.runtime isa Real && result.runtime >= 0
 
-            # 7. Verify metadata matches what's in the file
+            # 6. Verify metadata matches what's in the file
             if ext == "bson"
                 data = BSON.load(path)
                 @test result.version == data[:version]
@@ -149,8 +153,8 @@ end
 end
 
 @testitem "cached with path == nothing" begin
-    using Dates
-    result = @test_logs cached(nothing) do
+    using CacheVariables, Dates
+    result = cached(nothing) do
         x = collect(1:3)
         y = 4
         z = "test"

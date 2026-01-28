@@ -225,7 +225,7 @@ function cached(@nospecialize(f), path::AbstractString; overwrite = false)
         if ext == ".bson"
             data = BSON.load(path)
             version = data[:version]
-            whenrun = data[:whenrun]
+            whenrun = DateTime(data[:whenrun])
             runtime = data[:runtime]
             output = data[:output]
         elseif ext == ".jld2"
